@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
 <meta name="googlebot" content="noindex,nofollow,nosnippet">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-6qXlKc1/RxqEe6CjviZFNBztUhT6aob5EWYMCLSbUOw=' ; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-6qXlKc1/RxqEe6CjviZFNBztUhT6aob5EWYMCLSbUOw=' 'sha256-O5gom7v1aH07OH7OuWknRr1GtlOKMoieSyC/V8KO1QY='; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>時間割検索｜ログイン</title>
 <style>
 :root{color-scheme:light;--bg:#f6f7fb;--text:#1b2233;--muted:#5e6a85;--accent:#2d5bff}
@@ -55,7 +55,7 @@ iframe{display:block;width:100%;height:calc(100vh - 56px);height:calc(100dvh - 5
   <div class="app-bar"><span>時間割検索</span><button id="logout" class="secondary" type="button">ログアウト</button></div>
   <div id="frame-container"></div>
 </section>
-<script id="encrypted-payload" type="application/json">null</script>
+<script id="encrypted-payload" type="application/json">{"version":1,"algorithm":"AES-256-GCM","kdf":"PBKDF2-SHA-256","iterations":600000,"salt":"AYkJDgKMQeQxpWKBWsbMsw==","iv":"INixTOuJILAZAtsH","ciphertext":"8YO+DbvfhH+TG9ddDa1mWEpXSu+jskU6jXSFYAQ4KNN5PX7fRSUBJ6viGaQUWt7sv6u6Z1kP1tgaB1mSOwVICx/2hvIoLywyGKaNpc+LvsfV0kLLsKEEcPTUxQ1QKmhGVWRHLhWR8BOb0h0GeRxPPHDy8+yLezv/mb7DIRGJxXa/uTJvjr76w9xokQ8QFRBfk5kxKI2cM1Drgh2QBMtlqhwIaBfj6UWUHuiX52EaV0G1vCfDzGjcnzStsMobcoTjgTCvXlC8874Z+rFvVMtwpnFH8fpKjb79BS8/fpDo9TiNUaYQquwsC1N1Ze+sMO0h3i3/UtLyvX8u21FPwmY/GD2MzJmgZZPZqx6oGwMrphcPqHtc9Xlj3Bn5KFEswa/lytvSL/o7zJXDgWKGvukir2p6r7SONc2Dh1WT3GYCiVSS3KVf4p8c1+drKvTa6NJkltSsLMCr/0WdoVjptAds3m88wYA/4kH/Sg/zSda8qceZgbPFvGffwjoXjuE3s5XDQRoXsYK/xZrY/3NaJhCRBJskDVA5Y5KXXKvuSoVs1fFqd2I2vNClVeO1OkHtTcXQn+IJbBGRlJwi5jg+FjGgGeL6jR3+QlfYUfEA/roKZvNIVLpaIDfTsjmDDEIoNHZ7SOmp0EeAgxP5/WA0HpGweEmmzYy2FyRfXj8inU7pCMSLcRdTZAVRBJPcChRU+vJUI86RqX7Ze3VWypyL/qok671scIJt0x+i1/d0FDzJbAnB3fG4DsyH6vIv+i/y2i5xWua/2kl6qiRcjIsR+/TdPUTDEwS9klIOlaObcCNZJGzBm9yYPfT8EDI4QSYoZiWfLvupEAHZy9OWL7K5TM5glYwPm7SquOlZzJuhKK20/BRd+kGhD4nqZM4Gdub8JSvLoHVy4uUZsJ1NgT8YHc6EXZYdZP0GNPZCtTjPwDWv359bO2dt7eptqD3RRcttsPJc9/pAr+DbSps+3QSpezd54+Yvy6CDfgIDOASHsJI4di+AcjU7wkighsryt1GLJSrMque0Tjr0r1ij8Hj596z7sbpI496h8PhWJ6ANccsW8cFAHW5fua/mwa44/Lzth5WGOYqqqTzhLthSvBWGScF4JcP6xkuIEnZZBvEO3M028GeUW4hc5yPkS6pnpJXgVnWnjcvl/EcfpEYCRy5fnn1vwViJGwclSXWVfyQ/c20jmQzXCGvAksBRs5NHg9ZjuSW3ZNN5dnLHMpqWD78qKpikgbzCKEeNa98REGZYo3kK6PhP47BxvMsfNPhsPJoL7IrDvZAaWxR/DMAaVflM0B+lil2UTsjzqNYwW4QNEpHQ0y1eabF1fM9XLd9P92nSr9rGVIva2Aqi2Z1oEKuokO46u56PSkSgmf/tV0w6CB4htBRrA4phYKsje5VMzyPSzYQIxlMKHoU1IXh8BF7gAfZ4k2Dc3gT3CsW/parANCugamNGddB68tEBGRacPMok+rr4ZdoExMaDhpl8MIutwquUHHLVtjRf+nVsnBP8AzLxxbScGyu3MjpoBHGvf4paIxcnfZOMe0gNTw25p9k5B0vjfOd4LxRBGKrOUYZ00Jv2UvvaIMRngUVK9XQh+xCdbvj/xuraXrH/V2JW6GaCYCpwP6Kd3k9ugqZ0ZzAjsUV+CiQOSRzJ2hAkvkjFtWGt2eSVk6EXGbDpBIumIc/wItZAHu/Hd1z8saV8DWRb+ZpH6w0KrRa5Fg=="}</script>
 <script>
 async function decryptHtml(payload, password) {
   if (!payload || payload.version !== 1 || payload.algorithm !== 'AES-256-GCM' ||

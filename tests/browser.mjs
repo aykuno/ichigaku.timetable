@@ -6,7 +6,7 @@ import { prepareContent, encryptHtml, renderPage } from '../tools/build-lib.mjs'
 const password = 'public-browser-fixture-password';
 const source = '<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><h1>模擬時間割</h1><p id="ready"></p><input id="query" aria-label="検索"><p id="result"></p><script>document.getElementById("ready").textContent="表示できました";document.getElementById("query").addEventListener("input",e=>{document.getElementById("result").textContent=e.target.value;});</script></body></html>';
 const content = prepareContent(source), payload = await encryptHtml(content,password);
-const unprovisionedPage = await readFile(new URL('../index.html',import.meta.url),'utf8');
+const unprovisionedPage = await readFile(new URL('../404.html',import.meta.url),'utf8');
 let servedPage = await renderPage(content,payload);
 const server = createServer((req,res) => {
   if (req.url === '/favicon.ico') {res.writeHead(204);res.end();return;}
