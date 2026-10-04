@@ -192,7 +192,7 @@
       if(attempt!==generation)return;
       preferenceSession=restored;
       preferences=restored.preferences;
-      sessionHtml = html;
+      sessionHtml = applyTimetablePresentation(html);
       container.replaceChildren();
       frames = [];
       createScreen(1);

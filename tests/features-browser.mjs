@@ -4,7 +4,8 @@ import {createServer} from 'node:http';
 import {chromium,webkit} from 'playwright';
 import {prepareContent,encryptHtml,renderPage} from '../tools/build-lib.mjs';
 const password='public-timetable-feature-fixture-password';
-const source=await readFile(new URL('./fixtures/features.html',import.meta.url),'utf8');
+// Exercise the presentation update against the old protected application shape.
+const source=await readFile(new URL('./fixtures/features-legacy.html',import.meta.url),'utf8');
 const content=prepareContent(source),html=await renderPage(content,await encryptHtml(content,password));
 const server=createServer((req,res)=>{if(req.url==='/favicon.ico'){res.writeHead(204);res.end();return;}res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(html);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -23,10 +24,27 @@ try{
     async function login(){await page.locator('#password').fill(password);await page.locator('#unlock').click();await page.frameLocator('#screen-1 iframe').locator('#favorite-toggle').waitFor();}
     const app=page.frameLocator('#screen-1 iframe');
     async function select(label){await app.locator('#q').fill(label);await app.locator('#results .result').first().click();await app.locator('#viewer .title').filter({hasText:label}).waitFor();}
+    await page.clock.install({time:new Date('2026-10-04T23:40:00Z')});
     await page.goto(url);await login();await select('6-2');
+    // The timetable must precede optional tools and fit near the top on phones.
+    assert.equal(await app.locator('.layout + .feature-hub').count(),1);
+    assert.equal(await app.locator('.controls #lessonSearchBox').count(),0);
+    assert.equal(await app.locator('#quick-access').isVisible(),false);
+    const initialTableTop=await app.locator('#viewer .table').evaluate(node=>node.getBoundingClientRect().top+scrollY);
+    if(viewport.width<640)assert.ok(initialTableTop<460,'phone timetable starts at '+initialTableTop+'px');
+    assert.ok((await app.locator('#now-text').textContent()).includes('現在：月曜1限'));
+    // Thursday has a seventh period; the same time on Friday is outside lessons.
+    await page.clock.setSystemTime(new Date('2026-10-08T06:20:00Z'));await select('6-2');
+    assert.ok((await app.locator('#now-text').textContent()).includes('現在：木曜7限'));
+    assert.equal(await app.locator('.cell.now-cell[data-period="6"][data-day="3"]').count(),1);
+    await page.clock.setSystemTime(new Date('2026-10-09T06:20:00Z'));await select('6-2');
+    assert.ok((await app.locator('#now-text').textContent()).includes('現在：授業時間外'));
+    assert.equal(await app.locator('.cell.now-cell').count(),0);
+    await page.clock.setSystemTime(new Date('2026-10-04T23:40:00Z'));await select('6-2');
     await app.locator('#viewer .cell[data-period="0"][data-day="0"]').click();
     assert.equal(await app.locator('#viewer .title').textContent(),'担任A');
     assert.ok((await app.locator('.teacher-profile').textContent()).includes('数学Ⅲ'));
+    assert.equal(await app.locator('.teacher-profile').getAttribute('open'),null);
     await app.locator('#viewer .cell[data-period="0"][data-day="0"]').click();
     assert.equal(await app.locator('#viewer .title').textContent(),'6-2');
 
@@ -73,7 +91,7 @@ try{
     await page.evaluate(()=>window.postMessage({type:'timetable-save',change:{type:'favorite',key:'teacher:forged',enabled:true}},'*'));
 
     // These are synthetic test bell times, not asserted school times.
-    await page.clock.install({time:new Date('2026-10-04T23:40:00Z')});
+    await page.clock.setSystemTime(new Date('2026-10-04T23:40:00Z'));
     await select('6-2');
     await app.locator('#clock-tools summary').click();
     await app.locator('#bell-mode').selectOption('high');

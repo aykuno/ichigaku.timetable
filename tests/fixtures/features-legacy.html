@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="googlebot" content="noindex,nofollow,nosnippet"><meta name="viewport" content="width=device-width,initial-scale=1"><title>匿名の動作確認用時間割</title><style>
+:root {
+  --bg:#f6f7fb; --panel:#ffffff; --line:#d7dbe7; --line2:#b8c0d6; --text:#1b2233; --muted:#5e6a85; --accent:#2d5bff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}
+body{padding:14px}
+.wrap{max-width:1180px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(28,42,89,.06)}
+.header{padding:18px 18px 10px}
+h1{font-size:22px;margin:0 0 6px}
+.sub{color:var(--muted);font-size:13px;line-height:1.5}
+.controls{padding:0 18px 16px;display:grid;gap:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.search{flex:1 1 340px;min-width:220px;height:44px;border:1px solid var(--line2);border-radius:12px;padding:0 14px;font-size:16px;background:#fff}
+
+.conditionBox{border:1px solid var(--line);border-radius:14px;background:#fbfcff;padding:10px 12px}
+.conditionSummary{cursor:pointer;font-weight:800;font-size:14px;color:var(--text);user-select:none}
+.conditionInner{display:grid;gap:10px;margin-top:10px}
+.conditionControls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.conditionSelect,.conditionInput{height:38px;border:1px solid var(--line2);border-radius:10px;background:#fff;padding:0 10px;font-size:14px}
+.conditionInput{min-width:190px;flex:1 1 220px}
+.conditionBtn{height:38px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:999px;padding:0 14px;font-size:14px;font-weight:800;cursor:pointer}
+.lessonResults{display:grid;gap:8px;margin-top:8px}
+.lessonResult{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px;text-align:left;cursor:pointer}
+.lessonResult:hover{border-color:var(--accent);background:#f6f8ff}
+.lessonResult .className{font-weight:800;font-size:16px}
+.lessonResult .lessonMeta{font-size:13px;color:var(--muted);line-height:1.45;margin-top:3px}
+.lessonBadge{display:inline-block;border:1px solid #c9d6ff;background:#eef3ff;border-radius:999px;padding:2px 8px;margin-right:5px;font-size:12px;font-weight:800;color:#263a74}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line2);background:#fff;color:var(--text);border-radius:999px;padding:10px 14px;font-size:14px;cursor:pointer}
+.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:14px}
+.sidebar{padding:10px;min-height:520px}
+.count{padding:8px 8px 10px;color:var(--muted);font-size:13px}
+.results{display:flex;flex-direction:column;gap:6px;max-height:760px;overflow:auto;padding-right:4px}
+.result{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;text-align:left}
+.result:hover{border-color:var(--accent)}
+.result.active{border-color:var(--accent);background:#eef3ff}
+.result .n{font-size:15px;font-weight:700}
+.result .m{font-size:12px;color:var(--muted);margin-top:2px}
+.result .g{font-size:12px;color:#263a74;margin-top:6px;line-height:1.35}
+.result .tag{display:inline-block;background:#eef3ff;border:1px solid #c9d6ff;border-radius:999px;padding:2px 7px;margin:2px 3px 0 0;font-weight:700}
+.viewer{padding:14px}
+.viewerTop{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;padding:6px 4px 12px}
+.title{font-size:28px;font-weight:800;line-height:1.2}
+.meta{color:var(--muted);font-size:13px}
+.legend{color:var(--muted);font-size:12px}
+.tableWrap{overflow:auto}
+.table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;border:1px solid var(--line2)}
+.table th,.table td{border:1px solid var(--line2);text-align:center;vertical-align:middle}
+.table thead th{background:#eef2fa;font-size:14px;font-weight:800;height:42px}
+.period{width:48px;background:#eef2fa;font-weight:800;font-size:14px}
+.cell{min-width:118px;height:88px;padding:6px 6px 5px}
+.toptext{font-weight:800;font-size:14px;line-height:1.18;white-space:pre-line;word-break:break-word}
+.bottomtext{margin-top:4px;font-size:12px;line-height:1.15;white-space:pre-line;word-break:break-word}
+.empty .toptext,.empty .bottomtext{color:#9aa3b5}
+.note{color:var(--muted);font-size:12px;padding:12px 4px 2px}
+.titleBlock{display:flex;flex-direction:column;gap:4px}
+.duties{font-size:14px;line-height:1.55;display:flex;flex-wrap:wrap;gap:0 8px;align-items:center}
+.duty{font-weight:700}
+.duty.red{color:#c62828}
+.duty.blue{color:#1565c0}
+.duty.green{color:#2e7d32}
+.duty.black{color:#111111}
+.dutySep{color:#98a2b8}
+.restday{font-size:13px;line-height:1.4;color:#374151;font-weight:700}
+@media (max-width:640px){.duties{font-size:12px;line-height:1.5}}
+@media (max-width:980px){.layout{grid-template-columns:1fr}.sidebar{min-height:auto}.results{max-height:260px}}
+@media (max-width:640px){body{padding:8px}.header{padding:14px 14px 8px}.controls{padding:0 14px 12px}.viewer{padding:10px}.title{font-size:24px}.cell{min-width:94px;height:78px;padding:5px 4px 4px}.toptext{font-size:12px}.bottomtext{font-size:10px}}
+
+.feature-hub{margin:14px 0;display:grid;gap:8px}
+.feature-hub details,.quick-access{padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.feature-hub summary{font-weight:800;font-size:14px;cursor:pointer}
+.feature-body{margin-top:12px;display:grid;gap:10px}
+.feature-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.feature-row label{font-size:13px}
+.feature-row select,.feature-row input{max-width:100%;height:38px;border:1px solid var(--line2);border-radius:10px;padding:0 8px;font:inherit;font-size:14px;background:#fff}
+.feature-row input[type="search"]{width:240px}
+.feature-btn{border:1px solid var(--line2);background:#fff;color:var(--text);border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;cursor:pointer}
+.feature-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.feature-btn[aria-pressed="true"]{background:#eef3ff;border-color:var(--accent)}
+.feature-btn:disabled{opacity:.5;cursor:default}
+.feature-note{color:var(--muted);font-size:12px;line-height:1.6}
+.feature-list{display:flex;gap:8px;flex-wrap:wrap}
+.feature-list button{max-width:100%;word-break:break-word}
+.quick-access{margin:0 18px 12px;display:grid;gap:8px;font-size:13px}
+.quick-access h2{font-size:13px;margin:0}
+.quick-access .feature-btn{padding:6px 9px}
+.common-options{max-height:200px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px}
+.common-options label{display:flex;align-items:center;gap:8px;padding:7px;background:#f8f9fc;border-radius:8px;font-size:13px}
+.common-options input{width:18px;height:18px;flex:none}
+.status-legend{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin:8px 0}
+.status-legend span{border-radius:6px;padding:4px 7px;border:1px solid #d7dbe7}
+.status-free{background:#e2f5e8;color:#155d34}
+.status-partial{background:#fff4cf;color:#805700}
+.status-busy{background:#fde7e7;color:#942323}
+.status-related{background:#e3edff;color:#214d93}
+.status-rest,.status-unknown{background:#eef0f4;color:#505b70}
+.common-table{min-width:600px;table-layout:fixed}
+.common-table td{height:74px;font-size:12px;padding:6px;white-space:pre-line}
+.common-table th{font-size:13px}
+.teacher-profile{font-size:13px;line-height:1.7;margin:0 0 12px}
+.teacher-profile .profile-line{display:flex;gap:6px;flex-wrap:wrap;align-items:baseline}
+.teacher-profile .feature-btn{padding:2px 6px;font-size:12px}
+.viewer-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.now-line{border:1px solid #cad7ff;background:#f1f5ff;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.65;margin-bottom:12px}
+.cell{position:relative}
+.cell-link{font:inherit;font-size:inherit;line-height:inherit;color:inherit;background:none;border:0;padding:0;white-space:pre-line;cursor:pointer;text-decoration:underline;text-decoration-color:#8b94a5;text-underline-offset:3px}
+.cell[data-linked="true"]{cursor:pointer}
+.cell.now-cell{outline:4px solid #263fa4;outline-offset:-4px}
+.cell.now-cell::after{content:"今";position:absolute;top:2px;right:2px;background:#263fa4;color:#fff;font-size:10px;padding:1px 4px;border-radius:4px}
+.cell.diff-free{background:#e2f5e8!important;box-shadow:inset 0 0 0 2px #36a260}
+.cell.diff-partial{background:#fff4cf!important;box-shadow:inset 0 0 0 2px #d0a029}
+.cell.diff-busy{background:#fde7e7!important;box-shadow:inset 0 0 0 2px #cf5b5b}
+.cell.diff-related{background:#e3edff!important;box-shadow:inset 0 0 0 3px #4d7cc9}
+.cell.diff-rest,.cell.diff-unknown{background:#eef0f4!important;box-shadow:inset 0 0 0 2px #9ba5b7}
+.diff-info{font-size:12px;line-height:1.6;margin-bottom:8px;color:var(--muted)}
+.reference-dialog{position:fixed;inset:0;z-index:10;background:rgba(20,30,55,.45);display:grid;place-items:center;padding:20px}
+.reference-card{max-width:440px;width:100%;padding:18px;background:#fff;border-radius:14px}
+.reference-card h2{font-size:17px;margin:0 0 12px}
+.bell-grid{display:grid;grid-template-columns:35px minmax(90px,1fr) minmax(90px,1fr);gap:6px;align-items:center;font-size:13px}
+.bell-grid input{min-width:0;width:100%;padding:6px;border:1px solid var(--line2);border-radius:8px}
+@media(max-width:640px){.quick-access{margin:0 14px 10px}.feature-hub{margin:10px 0}.feature-hub details{padding:10px}.feature-row input[type="search"]{width:100%}}
+</style></head>
+<body><div class="wrap"><div class="card"><div class="header"><h1>模擬時間割</h1><div class="sub">架空の検証データ</div></div><div class="controls">
+<input id="q" class="search" aria-label="検索">
+<details id="lessonSearchBox"><summary>授業条件検索</summary>
+<select id="lessonDay"><option value="0">月</option><option value="1">火</option><option value="2" selected>水</option><option value="3">木</option><option value="4">金</option><option value="5">土</option></select>
+<select id="lessonPeriod"><option value="0">1</option><option value="1">2</option><option value="2" selected>3</option><option value="3">4</option><option value="4">5</option><option value="5">6</option><option value="6">7</option></select>
+<input id="lessonSubject" value="家庭"><button id="lessonSearchBtn">検索する</button></details></div>
+<div class="layout"><div class="card sidebar"><div id="count"></div><div id="results" class="results"></div></div><div class="card viewer"><div id="viewer"></div></div></div></div></div>
+<script>
+const DATA={"texts":["","家庭","担任A","数学Ⅲ","英語1","副担任B","6-2","6-3"],"colors":["#FFFFFF","#FFF6D5"],"items":[{"k":"t","n":"副担任B","s":"test","d":[[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[4,7,1],[0,0,0]],[[0,0,0],[0,0,0],[4,7,1],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"c","n":"6-3","s":"test","d":[[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[4,5,1],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"t","n":"担任A","s":"test","d":[[[3,6,1],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[3,6,1],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"c","n":"6-2","s":"test","d":[[[3,2,1],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[1,2,1],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"t","n":"授業C","s":"test","d":[[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[3,6,1],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"t","n":"産休D","s":"test","d":[[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"t","n":"休みE","s":"test","d":[[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[4,7,1],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]},{"k":"t","n":"指定休F","s":"test","d":[[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[3,7,1],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]}]};
+const DUTIES={"担任A":[{"t":"6-2担任","c":"red"},{"t":"確認部 部長","c":"green"}],"副担任B":[{"t":"6-2副担任","c":"red"},{"t":"確認部 副部長","c":"green"}]};
+const HOMEROOMS={"6-2":"担任A","6-3":"副担任B"};
+const VICE_HOMEROOMS={"6-2":"副担任B","6-3":"担任A"};
+const DAYS = ["月", "火", "水", "木", "金", "土"];
+const PERIODS = ["1", "2", "3", "4", "5", "6", "7"];
+const state = {query:'',currentKey:''};
+const qEl=document.getElementById('q');
+const resultsEl=document.getElementById('results');
+const countEl=document.getElementById('count');
+const viewerEl=document.getElementById('viewer');
+const lessonDayEl=document.getElementById('lessonDay');
+const lessonPeriodEl=document.getElementById('lessonPeriod');
+const lessonSubjectEl=document.getElementById('lessonSubject');
+const lessonSearchBtn=document.getElementById('lessonSearchBtn');
+const TEXTS=DATA.texts;
+const COLORS=DATA.colors;
+const REST_DAYS={"担任A":"土","指定休F":"火"};
+const STATUS_TEXTS={"産休D":"産休取得中","休みE":"休み：水、土"};
+const READINGS={"担任A":"たんにんえー","副担任B":"ふくたんにんびー","授業C":"じゅぎょうしー","産休D":"さんきゅうでぃー","休みE":"やすみいー","指定休F":"していきゅうえふ"};
+function toHiragana(str){return String(str||'').replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));}
+function searchNorm(str){return toHiragana(String(str||'')).toLowerCase().replace(/[\s　]+/g,'').trim();}
+const GROUP_READINGS={"確認部":["かくにんぶ"]};
+const GROUP_ALIASES=GROUP_READINGS;
+const ROLE_SUFFIXES=['副委員長','委員長','副部長','部長','副主任','主任','担当','総括'];
+function stripParenText(text){return String(text||'').replace(/[（(].*?[）)]/g,'');}
+function stripRoleSuffix(text){
+  let s=stripParenText(text).trim();
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(const suffix of ROLE_SUFFIXES){
+      if(s.endsWith(suffix)){
+        s=s.slice(0,-suffix.length).trim();
+        changed=true;
+        break;
+      }
+    }
+  }
+  return s;
+}
+function labelsForGroupName(groupName){
+  return [groupName].concat(GROUP_READINGS[groupName]||[]);
+}
+function labelsForDuty(text){
+  const raw=String(text||'');
+  const bases=unique([raw,stripParenText(raw),stripRoleSuffix(raw)].filter(Boolean));
+  const labels=[raw];
+  bases.forEach(base=>{
+    labels.push(base);
+    if(GROUP_READINGS[base]) labels.push(...labelsForGroupName(base));
+  });
+  Object.keys(GROUP_READINGS).forEach(groupName=>{
+    if(bases.some(base=>base.includes(groupName)||groupName.includes(base))){
+      labels.push(...labelsForGroupName(groupName));
+    }
+  });
+  ROLE_SUFFIXES.forEach(role=>{
+    if(raw.includes(role)) labels.push(role,...(GROUP_READINGS[role]||[]));
+  });
+  return unique(labels);
+}
+function dutyTextsOf(name){
+  return (DUTIES[name]||[]).map(d=>d&&d.t).filter(Boolean);
+}
+function searchableDutyTextForTeacher(name){
+  return dutyTextsOf(name).flatMap(labelsForDuty).join(' ');
+}
+function matchedDutiesForTeacher(name,query){
+  const q=normalize(query);
+  if(!q)return [];
+  return dutyTextsOf(name).filter(t=>{
+    return labelsForDuty(t).some(label=>{
+      const n=normalize(label);
+      return n && (n.includes(q) || (q.length>=3 && q.includes(n)));
+    });
+  });
+}
+function roleRankFromDutyText(text){
+  const t=String(text||'');
+  if(t.includes('副部長')||t.includes('副委員長')) return 1;
+  if(t.includes('部長')||t.includes('委員長')) return 0;
+  return 2;
+}
+function bestRoleRankForQuery(name,query){
+  const matched=matchedDutiesForTeacher(name,query);
+  if(!matched.length) return 2;
+  return Math.min(...matched.map(roleRankFromDutyText));
+}
+function unique(arr){return Array.from(new Set(arr));}
+const ITEMS=DATA.items.map((x,idx)=>{const kind=x.k==='t'?'teacher':'class'; const reading=kind==='teacher'?(READINGS[x.n]||''):''; const dutySearch=kind==='teacher'?searchableDutyTextForTeacher(x.n):''; return {...x,idx,kind,reading,key:(kind)+':'+x.n,search:searchNorm([x.n,reading,(kind==='teacher'?'教職員':'クラス'),x.s,dutySearch].join(' '))};});
+function kindLabel(kind){return kind==='teacher'?'教職員':'クラス'}
+function sourceLabel(item){return item.kind==='teacher'?item.s:'クラス別時間割 '+item.s}
+function normalize(s){return searchNorm(s)}
+function classQueryInfo(query){
+  const q=normalize(query);
+  const m=q.match(/^(\d+-\d+)(理|文)?$/);
+  return m?{q,base:m[1]}:null;
+}
+function isClassNameQuery(query){return !!classQueryInfo(query)}
+function matchedClassDutiesForTeacher(name,query){
+  const info=classQueryInfo(query);
+  if(!info)return [];
+  const exact=matchedDutiesForTeacher(name,info.q);
+  const base=info.base!==info.q?matchedDutiesForTeacher(name,info.base):[];
+  return unique(exact.concat(base));
+}
+function matches(item){
+  const q=normalize(state.query);
+  if(!q)return true;
+  if(item.search.includes(q))return true;
+  // クラス名検索では、クラス表に紐づく担任・副担任を必ず候補に含める。
+  if(item.kind==='teacher'&&isClassNameQuery(state.query)){
+    return item.n===HOMEROOMS[q]||item.n===VICE_HOMEROOMS[q];
+  }
+  return false;
+}
+function parseClassParts(name){
+  const m=String(name||'').match(/^(\d+)-(\d+)(.*)$/);
+  if(!m) return {g:999,c:999,s:String(name||'')};
+  return {g:parseInt(m[1],10),c:parseInt(m[2],10),s:m[3]||''};
+}
+function classSearchRank(item,query){
+  if(item.kind==='class') return 0;
+  if(item.kind!=='teacher') return 3;
+  const q=normalize(query);
+  if(item.n===HOMEROOMS[q]) return 1;
+  if(item.n===VICE_HOMEROOMS[q]) return 2;
+  return 3;
+}
+function compareItems(a,b){
+  const q=normalize(state.query);
+  const classQuery=isClassNameQuery(state.query);
+
+  // クラス名検索時は「クラス時間割 → 担任 → 副担任」の順にする。
+  if(classQuery){
+    const arank=classSearchRank(a,state.query);
+    const brank=classSearchRank(b,state.query);
+    if(arank!==brank) return arank-brank;
+  }else if(a.kind!==b.kind){
+    return a.kind==='teacher'?-1:1;
+  }
+
+  if(a.kind==='teacher'&&b.kind==='teacher'){
+    if(q&&!classQuery){
+      const arank=bestRoleRankForQuery(a.n,state.query);
+      const brank=bestRoleRankForQuery(b.n,state.query);
+      if(arank!==brank) return arank-brank;
+    }
+    const ar=normalize(a.reading||a.n);
+    const br=normalize(b.reading||b.n);
+    return ar.localeCompare(br,'ja') || a.n.localeCompare(b.n,'ja');
+  }
+  if(a.kind==='class'&&b.kind==='class'){
+    const pa=parseClassParts(a.n), pb=parseClassParts(b.n);
+    return (pa.g-pb.g) || (pa.c-pb.c) || pa.s.localeCompare(pb.s,'ja');
+  }
+  return a.kind==='class'?-1:1;
+}
+function filteredItems(){
+  const arr=ITEMS.filter(matches);
+  arr.sort(compareItems);
+  return arr
+}
+function resultMetaHtml(item){
+  let html='<div class="m">'+kindLabel(item.kind)+' ・ '+escapeHtml(sourceLabel(item))+'</div>';
+  if(item.kind==='teacher'){
+    const matched=unique(isClassNameQuery(state.query)?matchedClassDutiesForTeacher(item.n,state.query):matchedDutiesForTeacher(item.n,state.query));
+    if(matched.length){
+      html+='<div class="g">一致所属：'+matched.map(x=>'<span class="tag">'+escapeHtml(x)+'</span>').join('')+'</div>';
+    }
+  }
+  return html;
+}
+const RESULT_RENDER_LIMIT=80;
+function renderResults(){
+  const arr=filteredItems();
+  countEl.textContent=arr.length+'件'+(state.query?'（検索語：'+state.query+'）':'');
+  if(!arr.length){resultsEl.innerHTML='<div class="note">該当する項目がありません。</div>';if(!viewerEl.innerHTML)renderEmpty();return}
+  resultsEl.innerHTML=arr.map(item=>'<button class="result '+(state.currentKey===item.key?'active':'')+'" data-key="'+escapeAttr(item.key)+'"><div class="n">'+escapeHtml(item.n)+'</div>'+resultMetaHtml(item)+'</button>').join('');
+  [...resultsEl.querySelectorAll('.result')].forEach(btn=>btn.addEventListener('click',()=>openItem(btn.dataset.key)));
+  if(!state.currentKey||!arr.some(x=>x.key===state.currentKey)){openItem(arr[0].key,false)}
+}
+function openItem(key,scroll=true){
+  const item=ITEMS.find(x=>x.key===key); if(!item)return;
+  state.currentKey=key; renderViewer(item);
+  [...resultsEl.querySelectorAll('.result')].forEach(el=>el.classList.toggle('active',el.dataset.key===key));
+  const hashValue=encodeURIComponent(key); if(location.hash!=='#'+hashValue)location.hash=hashValue;
+  if(scroll){const active=resultsEl.querySelector('.result.active'); if(active)active.scrollIntoView({block:'nearest'})}
+}
+function renderEmpty(){viewerEl.innerHTML='<div class="viewerTop"><div><div class="title">時間割を選択してください</div><div class="meta">左の一覧から選ぶか、上の検索欄に教職員名・クラス名・ひらがなを入力してください。</div></div></div>'}
+function renderDutySpans(list){
+  if(!list||!list.length)return '';
+  return '<div class="duties">'+list.map((x,i)=>'<span class="duty '+x.c+'">'+escapeHtml(x.t)+'</span>'+(i<list.length-1?'<span class="dutySep">/</span>':'' )).join('')+'</div>';
+}
+const JAPANESE_COLOR='#D9EAD3';
+const MATH_COLOR='#DDEBF7';
+const SOCIAL_COLOR='#F0DDA0';
+const SCIENCE_COLOR='#F4D7C8';
+const ENGLISH_COLOR='#E7D9F4';
+const ART_COLOR='#F4E2CF';
+const PE_COLOR='#FFF2CC';
+const HOMEINFO_COLOR='#CFF4FF';
+const MORAL_LHR_COLOR='#D9D9D9';
+const SEMINAR_COLOR='#E8D7F5';
+const MEETING_COLOR='#C9DAF8';
+const DEPT_COLOR='#D6EED0';
+const JAPANESE_SUBJECTS=new Set(['国語','言語文化','文学国語','現代文','古典','古典探究','構造読解Ⅰ','構造読解Ⅱ']);
+const MATH_SUBJECTS=new Set(['数式','図形','数学','数学Ａ','数学Ⅰ','数学Ｂ','数学Ⅱ','数学Ⅲ','数学Ｃ']);
+const SOCIAL_SUBJECTS=new Set(['社会','地理','地理AL','地理探究','地理探究/世界史探究','地理探究/公民演習','地理探究/公民演習/日本史演習','地理探究/世界史演習','世界史探究/日本史探究','歴史','歴史総合','公民','公民AL','公共']);
+const SCIENCE_SUBJECTS=new Set(['SSH','理科Ⅰ','理科Ⅱ','物理/生物','物理','物理基礎','化学','化学基礎','生物基礎','地学基礎']);
+const ENGLISH_SUBJECTS=new Set(['英語','英語1','英語1/Reading','英語2','英語2/Reading','英語2/Writing','英語２','英コミュⅠ','英コミュⅡ','英コミュⅢ','プレ英Ⅰ','プレ英Ⅰ/論理・表現Ⅰ','プレ英Ⅱ','プレ英Ⅱ/論理・表現Ⅱ','論理・表現Ⅰ','論理・表現Ⅱ','論理・表現Ⅲ','英会話','英会話/Writing','Writing']);
+const ART_SUBJECTS=new Set(['芸術','音楽','音楽/美術','美術','書道']);
+const PE_SUBJECTS=new Set(['保健体育','保健','体育','ダンス','剣道','剣道/ダンス']);
+const HOMEINFO_SUBJECTS=new Set(['家庭','家庭基礎','家庭/情報','情報Ⅰ','技術']);
+const MORAL_LHR_SUBJECTS=new Set(['道徳','LHR']);
+const SEMINAR_SUBJECTS=new Set(['ゼミ','LAゼミ']);
+const MEETING_SUBJECTS=new Set(['主任会議']);
+const DEPT_SUBJECTS=new Set(['教科部会']);
+function normalizeCellColor(top,color){
+  const norm=String(top||'').replace(/\n/g,'').replace(/\s+/g,'');
+  if(norm==='✕') return '#FFFFFF';
+  if(norm==='ＩＣＲ') return MORAL_LHR_COLOR;
+  if(JAPANESE_SUBJECTS.has(norm)) return JAPANESE_COLOR;
+  if(MATH_SUBJECTS.has(norm)) return MATH_COLOR;
+  if(SOCIAL_SUBJECTS.has(norm)) return SOCIAL_COLOR;
+  if(SCIENCE_SUBJECTS.has(norm)) return SCIENCE_COLOR;
+  if(ENGLISH_SUBJECTS.has(norm)) return ENGLISH_COLOR;
+  if(ART_SUBJECTS.has(norm)) return ART_COLOR;
+  if(PE_SUBJECTS.has(norm)) return PE_COLOR;
+  if(HOMEINFO_SUBJECTS.has(norm)) return HOMEINFO_COLOR;
+  if(MORAL_LHR_SUBJECTS.has(norm)) return MORAL_LHR_COLOR;
+  if(SEMINAR_SUBJECTS.has(norm)) return SEMINAR_COLOR;
+  if(MEETING_SUBJECTS.has(norm)) return MEETING_COLOR;
+  if(DEPT_SUBJECTS.has(norm)) return DEPT_COLOR;
+  return color;
+}
+
+function compactSubjectText(s){return String(s||'').replace(/\n/g,'').replace(/[ 　]/g,'').trim();}
+function subjectCategoriesFromText(s){
+  const t=compactSubjectText(s);
+  const n=searchNorm(t);
+  const cats=new Set();
+  if(!t||t==='✕'||t==='ＩＣＲ') return cats;
+  if(/英語|英会話|英コミュ|論理・表現|Writing|Reading|プレ英/i.test(t) || /writing|reading/i.test(t)) cats.add('英語');
+  if(/数学|数式|図形/.test(t)) cats.add('数学');
+  if(/国語|言語文化|文学国語|現代文|古典|構造読解/.test(t)) cats.add('国語');
+  if(/物理/.test(t)) cats.add('物理');
+  if(/化学/.test(t)) cats.add('化学');
+  if(/生物/.test(t)) cats.add('生物');
+  if(/地学/.test(t)) cats.add('地学');
+  if(/理科|SSH/.test(t)) cats.add('理科');
+  if(/地理/.test(t)) cats.add('地理');
+  if(/歴史|世界史|日本史/.test(t)) cats.add('歴史');
+  if(/公民|公共/.test(t)) cats.add('公民');
+  if(/社会/.test(t)) cats.add('社会');
+  if(/家庭/.test(t)) cats.add('家庭');
+  if(/情報/.test(t)) cats.add('情報');
+  if(/技術/.test(t)) cats.add('技術');
+  if(/保健体育|体育|保健|ダンス|剣道/.test(t)) cats.add('保健体育');
+  if(/芸術|音楽|美術|書道/.test(t)) cats.add('芸術');
+  if(/道徳/.test(t)) cats.add('道徳');
+  if(/LHR/.test(t)) cats.add('LHR');
+  if(/LAゼミ|ゼミ/.test(t) || n.includes('えるえーぜみ')) cats.add('ゼミ');
+  if(!cats.size) cats.add(n || t);
+  return cats;
+}
+function expandedQueryCategories(q){
+  const cats=subjectCategoriesFromText(q);
+  const n=searchNorm(q);
+  if(n==='えいご'||n==='english') cats.add('英語');
+  if(n==='すうがく'||n==='math') cats.add('数学');
+  if(n==='こくご') cats.add('国語');
+  if(n==='りか') cats.add('理科');
+  if(n==='しゃかい') cats.add('社会');
+  if(n==='かてい'||n==='かていか') cats.add('家庭');
+  if(n==='じょうほう') cats.add('情報');
+  if(n==='たいいく'||n==='ほけんたいいく') cats.add('保健体育');
+  return cats;
+}
+function subjectMatchesForLesson(top,query){
+  const topText=compactSubjectText(top);
+  if(!topText||topText==='✕'||topText==='ＩＣＲ') return false;
+  const q=compactSubjectText(query);
+  if(!q) return true;
+  const topNorm=searchNorm(topText), qNorm=searchNorm(q);
+  if(topNorm.includes(qNorm)) return true;
+  const cellCats=subjectCategoriesFromText(topText);
+  const qCats=expandedQueryCategories(q);
+  const scienceBroad=['理科','物理','化学','生物','地学'];
+  const socialBroad=['社会','地理','歴史','公民'];
+  for(const qc of qCats){
+    if(qc==='理科' && scienceBroad.some(c=>cellCats.has(c))) return true;
+    if(qc==='社会' && socialBroad.some(c=>cellCats.has(c))) return true;
+    if(cellCats.has(qc)) return true;
+  }
+  return false;
+}
+function lessonConditionResults(){
+  const dayIdx=parseInt(lessonDayEl.value,10), periodIdx=parseInt(lessonPeriodEl.value,10), subject=lessonSubjectEl.value;
+  return ITEMS.filter(x=>x.kind==='class').map(item=>{
+    const cell=(item.d[periodIdx]||[])[dayIdx]||[0,0,0];
+    const top=TEXTS[cell[0]], bottom=TEXTS[cell[1]];
+    if(!subjectMatchesForLesson(top,subject)) return null;
+    return {item,top,bottom,dayIdx,periodIdx};
+  }).filter(Boolean).sort((a,b)=>compareItems(a.item,b.item));
+}
+function renderLessonConditionResults(){
+  const day=DAYS[parseInt(lessonDayEl.value,10)], period=PERIODS[parseInt(lessonPeriodEl.value,10)], subject=lessonSubjectEl.value.trim()||'全科目';
+  const arr=lessonConditionResults();
+  state.currentKey=null;
+  countEl.textContent='授業条件検索：'+arr.length+'件';
+  resultsEl.innerHTML='<div class="note">授業条件検索の結果は右側に表示しています。クラス名を押すと時間割を開きます。</div>';
+  const resultHtml=arr.length ? '<div class="lessonResults">'+arr.map(r=>'<button class="lessonResult" data-key="'+escapeAttr(r.item.key)+'"><div class="className">'+escapeHtml(r.item.n)+'</div><div class="lessonMeta"><span class="lessonBadge">'+escapeHtml(day)+'曜'+escapeHtml(period)+'限</span><span class="lessonBadge">'+escapeHtml(r.top)+'</span>担当：'+escapeHtml(r.bottom||'')+'</div></button>').join('')+'</div>' : '<div class="note">該当するクラスはありません。</div>';
+  viewerEl.innerHTML='<div class="viewerTop"><div><div class="title">授業条件検索</div><div class="meta">'+escapeHtml(day)+'曜'+escapeHtml(period)+'限・'+escapeHtml(subject)+' の検索結果：'+arr.length+'件</div></div></div>'+resultHtml+'<div class="note">科目は同一カテゴリで広めに判定します。例：英語1・英語2・英コミュ・論理表現・Writing・Reading は英語、数学ⅠAⅡBⅢC は数学、生物基礎は生物として扱います。</div>';
+}
+
+function renderViewer(item){
+  const rows=item.d.map((row,i)=>'<tr><th class="period">'+PERIODS[i]+'</th>'+row.map(cell=>{const top=TEXTS[cell[0]],bottom=TEXTS[cell[1]],baseColor=COLORS[cell[2]]||'#FFFFFF',color=normalizeCellColor(top,baseColor),empty=!top&&!bottom;return '<td class="cell '+(empty?'empty':'')+'" style="background:'+color+'"><div class="toptext">'+escapeHtml(top).split('\n').join('<br>')+'</div><div class="bottomtext">'+escapeHtml(bottom).split('\n').join('<br>')+'</div></td>'}).join('')+'</tr>').join('');
+  if(item.kind==='teacher'){
+    const dutiesHtml=renderDutySpans(DUTIES[item.n]||[]);
+    const restHtml=(STATUS_TEXTS[item.n] ? '<div class="restday">'+escapeHtml(STATUS_TEXTS[item.n])+'</div>' : (REST_DAYS[item.n] ? '<div class="restday">指定休：'+escapeHtml(REST_DAYS[item.n])+'</div>' : ''));
+    viewerEl.innerHTML='<div class="viewerTop"><div class="titleBlock"><div class="title">'+escapeHtml(item.n)+'</div>'+dutiesHtml+restHtml+'<div class="meta">'+kindLabel(item.kind)+' ・ '+escapeHtml(sourceLabel(item))+'</div></div><div class="legend">表示形式：上段＝科目等 / 下段＝担当・クラス</div></div><div class="tableWrap"><table class="table"><thead><tr><th class="period">限</th>'+DAYS.map(d=>'<th>'+d+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div><div class="note">教職員別時間割は ver2.1、クラス別時間割は ver3.2 を基準にしています。</div>';
+  }else{
+    const homeroom=HOMEROOMS[item.n]||'';
+    const viceHomeroom=VICE_HOMEROOMS[item.n]||'';
+    let homeroomHtml='';
+    if(homeroom||viceHomeroom){
+      homeroomHtml='<div class="duties">'+(homeroom?'<span class="duty black">担任：'+escapeHtml(homeroom)+'</span>':'')+((homeroom&&viceHomeroom)?'<span class="dutySep">/</span>':'')+(viceHomeroom?'<span class="duty black">副担任：'+escapeHtml(viceHomeroom)+'</span>':'')+'</div>';
+    }
+    viewerEl.innerHTML='<div class="viewerTop"><div class="titleBlock"><div class="title">'+escapeHtml(item.n)+'</div>'+homeroomHtml+'<div class="meta">'+kindLabel(item.kind)+' ・ '+escapeHtml(sourceLabel(item))+'</div></div><div class="legend">表示形式：上段＝科目等 / 下段＝担当・クラス</div></div><div class="tableWrap"><table class="table"><thead><tr><th class="period">限</th>'+DAYS.map(d=>'<th>'+d+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div><div class="note">教職員別時間割は ver2.1、クラス別時間割は ver3.2 を基準にしています。</div>';
+  }
+}
+function escapeHtml(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function escapeAttr(str){return escapeHtml(str).replace(/"/g,'&quot;')}
+function applyFromHash(){
+  const raw=decodeURIComponent((location.hash||'').replace(/^#/,''));
+  if(!raw)return;
+  const item=ITEMS.find(x=>x.key===raw);
+  if(item){openItem(item.key)}
+}
+viewerEl.addEventListener('click',e=>{const btn=e.target.closest('.lessonResult'); if(btn) openItem(btn.dataset.key)});
+qEl.addEventListener('input',e=>{state.query=e.target.value;renderResults()});
+lessonSearchBtn.addEventListener('click',renderLessonConditionResults);
+lessonSubjectEl.addEventListener('keydown',e=>{if(e.key==='Enter')renderLessonConditionResults()});
+renderEmpty(); renderResults(); applyFromHash();
+
+/* timetable-enhancements-v1 */
+;(() => {
+  'use strict';
+  const byId=id=>document.getElementById(id);
+  const esc=escapeHtml;
+  const TEACHERS=ITEMS.filter(x=>x.kind==='teacher').sort((a,b)=>normalize(a.reading||a.n).localeCompare(normalize(b.reading||b.n),'ja'));
+  const CLASSES=ITEMS.filter(x=>x.kind==='class');
+  const selected=new Set();
+  let prefs={favorites:[],recent:[],bells:{}}, prefsReady=false;
+  let peer=null, differenceEnabled=false, clockLevel='high';
+  const profileCache=new Map(), referencesCache=new Map();
+  const classRefs=text=>{
+    const expanded=String(text||'').replace(/([1-6])-(\d+(?:理|文)?(?:\/\d+(?:理|文)?)+)/g,(_,g,rest)=>rest.split('/').map(c=>g+'-'+c).join(' '));
+    const tokens=expanded.match(/[1-6]-\d+(?:理|文)?/g)||[];
+    return CLASSES.filter(c=>tokens.includes(c.n) || tokens.some(t=>/理|文/.test(c.n)&&c.n.replace(/[理文]$/,'')===t));
+  };
+  function teacherRefs(text) {
+    const s=normalize(text);
+    const tokens=String(text||'').split(/[\s/／・、,&＆＋+]+/).map(normalize);
+    const exact=TEACHERS.filter(t=>tokens.includes(normalize(t.n)));
+    if(exact.length)return exact;
+    const found=TEACHERS.filter(t=>s.includes(normalize(t.n))).sort((a,b)=>b.n.length-a.n.length);
+    return found.filter(t=>!found.some(other=>other!==t&&other.n.length>t.n.length&&normalize(other.n).includes(normalize(t.n))));
+  }
+  function cellData(item,p,d) {
+    const raw=item?.d?.[p]?.[d];
+    return raw?{top:TEXTS[raw[0]]||'',bottom:TEXTS[raw[1]]||'',color:COLORS[raw[2]]||'#fff'}:null;
+  }
+  function refs(item,p,d) {
+    const key=item.key+'|'+p+'|'+d;
+    if(referencesCache.has(key))return referencesCache.get(key);
+    const cell=cellData(item,p,d);
+    const result=cell?(item.kind==='class'?teacherRefs(cell.bottom):classRefs(cell.bottom)):[];
+    referencesCache.set(key,result);return result;
+  }
+  function availability(item,p,d) {
+    const cell=cellData(item,p,d);
+    if(!cell)return {kind:'unknown',label:'データなし'};
+    if(item.kind==='teacher') {
+      const status=STATUS_TEXTS[item.n]||'';
+      if(String(REST_DAYS[item.n]||'').includes(DAYS[d]) || /[✕×]/.test(cell.top))
+        return {kind:'rest',label:'指定休'};
+      if(status.includes('休み：')&&status.includes(DAYS[d]))return {kind:'rest',label:'休み'};
+      if(/産休|出勤日/.test(status)&&!cell.top&&!cell.bottom)return {kind:'unknown',label:status};
+    }
+    if(cell.top||cell.bottom)return {kind:'busy',label:'予定あり'};
+    return {kind:'free',label:'空き'};
+  }
+  function profile(teacher) {
+    if(profileCache.has(teacher.key))return profileCache.get(teacher.key);
+    const subjects=new Set(), categories=new Set(), classes=new Set();
+    for(let p=0;p<7;p++)for(let d=0;d<6;d++){
+      const cell=cellData(teacher,p,d);if(!cell)continue;
+      if(cell.top&&!/^[✕×]$|ＩＣＲ|ICR|教科部会|主任会議|道徳|LHR|ゼミ/.test(cell.top)){
+        subjects.add(compactSubjectText(cell.top));
+        subjectCategoriesFromText(cell.top).forEach(c=>categories.add(c));
+      }
+      refs(teacher,p,d).forEach(c=>classes.add(c.n));
+    }
+    for(const c of CLASSES)for(let p=0;p<7;p++)for(let d=0;d<6;d++){
+      if(refs(c,p,d).some(t=>t.key===teacher.key))classes.add(c.n);
+    }
+    const result={subjects:[...subjects],categories:[...categories],classes:[...classes].sort((a,b)=>parseClassParts(a).g-parseClassParts(b).g||parseClassParts(a).c-parseClassParts(b).c||a.localeCompare(b,'ja'))};
+    profileCache.set(teacher.key,result);return result;
+  }
+  function isRelated(a,b,p,d) {
+    const sa=availability(a,p,d),sb=availability(b,p,d);
+    if(sa.kind!=='busy'||sb.kind!=='busy')return false;
+    if(a.kind!==b.kind)return refs(a,p,d).some(x=>x.key===b.key)||refs(b,p,d).some(x=>x.key===a.key);
+    const ca=cellData(a,p,d),cb=cellData(b,p,d);
+    return compactSubjectText(ca.top)===compactSubjectText(cb.top)&&refs(a,p,d).some(x=>refs(b,p,d).some(y=>y.key===x.key));
+  }
+  function compareStatus(items,p,d) {
+    const states=items.map(x=>availability(x,p,d));
+    if(states.some(x=>x.kind==='unknown'))return {kind:'unknown',label:'データ・勤務要確認'};
+    if(states.some(x=>x.kind==='rest'))return {kind:'rest',label:'指定休・休みあり'};
+    const busy=states.filter(x=>x.kind==='busy').length;
+    if(!busy)return {kind:'free',label:'共通空き'};
+    if(busy===items.length)return {kind:'busy',label:items.length===2?'両方予定あり':'全員予定あり'};
+    return {kind:'partial',label:busy+'/'+items.length+'人に予定'};
+  }
+  const legend='<div class="status-legend"><span class="status-free">緑：共通空き</span><span class="status-partial">黄：一部に予定</span><span class="status-busy">赤：全員に予定</span><span class="status-related">青：同じ授業に関係</span><span class="status-rest">灰：指定休・休み等</span></div>';
+  const hub=document.createElement('section');hub.className='feature-hub';
+  hub.innerHTML='<details id="free-tools"><summary>空き教員検索</summary><div class="feature-body"><div class="feature-row"><label>曜日 <select id="free-day">'+DAYS.map((x,i)=>'<option value="'+i+'">'+x+'曜</option>').join('')+'</select></label><label>時限 <select id="free-period">'+PERIODS.map((x,i)=>'<option value="'+i+'">'+x+'限</option>').join('')+'</select></label><label>教科 <select id="free-subject"><option value="">全教科</option>'+['英語','数学','国語','理科','社会','保健体育','芸術','家庭','情報','技術'].map(x=>'<option value="'+x+'">'+x+'科</option>').join('')+'</select></label><label>担当学年 <select id="free-grade"><option value="">全学年</option>'+['中1','中2','中3','高1','高2','高3'].map((x,i)=>'<option value="'+(i+1)+'">'+x+'</option>').join('')+'</select></label><button id="free-search" class="feature-btn primary" type="button">空きを検索</button></div><div id="free-results" aria-live="polite"></div><div class="feature-note">時間割上の空きを表示します。教科・担当学年は授業データから集計しています。</div></div></details>'+
+    '<details id="common-tools"><summary>共通空き時間検索（2人以上）</summary><div class="feature-body"><div class="feature-row"><input id="common-query" type="search" placeholder="教員名・ひらがなで絞る" aria-label="共通空き検索の教員名"><button id="common-current" class="feature-btn" type="button">表示中の教員を追加</button><button id="common-homeroom" class="feature-btn" type="button">担任＋副担任を選ぶ</button><button id="common-comparison" class="feature-btn" type="button">2画面の教員を使う</button><button id="common-clear" class="feature-btn" type="button">選択をクリア</button></div><div id="common-selected" class="feature-list"></div><div id="common-options" class="common-options"></div><div id="common-message" class="feature-note" role="status"></div><div id="common-grid"></div></div></details>'+
+    '<details id="clock-tools"><summary>「今」表示の時刻設定</summary><div class="feature-body"><div class="feature-note">学校の現行時刻を登録してください。空欄の時限は判定しません。日本時間で週時間割を表示し、臨時変更・休校日は自動反映しません。</div><div class="feature-row"><label>設定する時刻表 <select id="bell-mode"><option value="high">高校・平日</option><option value="middle">中学・平日</option><option value="highSat">高校・土曜</option><option value="middleSat">中学・土曜</option></select></label></div><div id="bell-form"><div id="bell-grid" class="bell-grid"><span>限</span><span>開始</span><span>終了</span>'+PERIODS.map((x,i)=>'<label>'+x+'</label><input id="bell-start-'+i+'" type="time" aria-label="'+x+'限開始"><input id="bell-end-'+i+'" type="time" aria-label="'+x+'限終了">').join('')+'</div><div class="feature-row" style="margin-top:10px"><button id="bell-save" class="feature-btn primary" type="button">時刻を保存</button><button id="bell-reset" class="feature-btn" type="button">この時刻表を消す</button></div></div><div id="bell-status" class="feature-note" role="status"></div></div></details>';
+  document.querySelector('.layout').before(hub);
+  const quick=document.createElement('section');quick.className='quick-access';quick.id='quick-access';
+  quick.innerHTML='<h2>お気に入り</h2><div id="favorites-list" class="feature-list"></div><h2>最近見た時間割</h2><div id="recent-list" class="feature-list"></div><div class="feature-row"><button id="clear-saved" class="feature-btn" type="button">お気に入り・履歴を消す</button><span id="saved-status" class="feature-note" role="status">端末に暗号化して保存します。</span></div>';
+  document.querySelector('.header').after(quick);
+  function current(){return ITEMS.find(x=>x.key===state.currentKey);}
+  function post(message){parent.postMessage(message,'*');}
+  function persist(change){if(prefsReady&&change)post({type:'timetable-save',change});}
+  function itemButton(item){return '<button type="button" class="feature-btn" data-open="'+esc(item.key)+'">'+esc(item.n)+'</button>';}
+  function renderQuick(){
+    for(const [id,keys] of [['favorites-list',prefs.favorites],['recent-list',prefs.recent]]){
+      const items=keys.map(k=>ITEMS.find(x=>x.key===k)).filter(Boolean);
+      byId(id).innerHTML=items.length?items.map(itemButton).join(''):'<span class="feature-note">'+(id==='favorites-list'?'時間割の★ボタンで登録できます。':'まだありません。')+'</span>';
+    }
+    const star=byId('favorite-toggle');
+    if(star){const on=prefs.favorites.includes(state.currentKey);star.textContent=on?'★ 登録済み':'☆ お気に入り';star.setAttribute('aria-pressed',String(on));}
+  }
+  function recordVisit(key){
+    if(!prefsReady)return;
+    prefs.recent=[key,...prefs.recent.filter(k=>k!==key)].slice(0,5);renderQuick();persist({type:'recent',key});
+  }
+  function renderFree(){
+    const d=Number(byId('free-day').value),p=Number(byId('free-period').value);
+    const subject=byId('free-subject').value,grade=byId('free-grade').value;
+    const teachers=TEACHERS.filter(t=>{
+      const pr=profile(t);
+      return (!subject||pr.subjects.some(s=>subjectMatchesForLesson(s,subject)))&&(!grade||pr.classes.some(c=>c.startsWith(grade+'-')));
+    });
+    const groups=[['free','空いている教員'],['rest','指定休・休み'],['unknown','データ・勤務要確認'],['busy','授業・予定あり']];
+    byId('free-results').innerHTML='<p class="feature-note">'+DAYS[d]+'曜'+PERIODS[p]+'限</p>'+groups.map(([kind,label])=>{
+      const found=teachers.filter(t=>availability(t,p,d).kind===kind);
+      return '<section data-free-group="'+kind+'"><h3 style="font-size:14px">'+label+'（'+found.length+'人）</h3><div class="feature-list">'+(found.length?found.map(t=>'<button class="feature-btn status-'+kind+'" type="button" data-open="'+esc(t.key)+'">'+esc(t.n)+(kind==='rest'||kind==='unknown'?'：'+esc(availability(t,p,d).label):'')+'</button>').join(''):'<span class="feature-note">該当なし</span>')+'</div></section>';
+    }).join('');
+  }
+  function renderCommonOptions(){
+    const query=normalize(byId('common-query').value);
+    byId('common-options').innerHTML=TEACHERS.filter(t=>!query||t.search.includes(query)).map(t=>'<label><input type="checkbox" data-teacher="'+esc(t.key)+'" '+(selected.has(t.key)?'checked':'')+'>'+esc(t.n)+'</label>').join('');
+    byId('common-selected').innerHTML=[...selected].map(k=>ITEMS.find(x=>x.key===k)).filter(Boolean).map(t=>'<button type="button" class="feature-btn" data-remove="'+esc(t.key)+'">'+esc(t.n)+' ×</button>').join('');
+  }
+  function renderCommon(){
+    renderCommonOptions();
+    const teachers=[...selected].map(k=>ITEMS.find(x=>x.key===k)).filter(x=>x?.kind==='teacher');
+    if(teachers.length<2){byId('common-grid').innerHTML='';byId('common-message').textContent='教員を2人以上選んでください。';return;}
+    byId('common-message').textContent=teachers.length+'人を比較しています。指定休・休み等を含む時間は共通空きにしません。';
+    byId('common-grid').innerHTML=legend+'<div class="tableWrap"><table class="table common-table"><caption>共通空き時間（'+teachers.length+'人）</caption><thead><tr><th>限</th>'+DAYS.map(d=>'<th>'+d+'</th>').join('')+'</tr></thead><tbody>'+PERIODS.map((p,pi)=>'<tr><th>'+p+'</th>'+DAYS.map((day,di)=>{
+      const status=compareStatus(teachers,pi,di);
+      const detail=teachers.map(t=>t.n+'：'+availability(t,pi,di).label).join('\n');
+      return '<td data-status="'+status.kind+'" class="status-'+status.kind+'" title="'+esc(detail)+'">'+esc(status.label)+'</td>';
+    }).join('')+'</tr>').join('')+'</tbody></table></div>';
+  }
+  function addTeachers(items){items.filter(x=>x?.kind==='teacher').forEach(t=>selected.add(t.key));renderCommon();}
+  byId('free-search').addEventListener('click',renderFree);
+  byId('common-query').addEventListener('input',renderCommonOptions);
+  byId('common-options').addEventListener('change',event=>{
+    const key=event.target.dataset.teacher;if(!key)return;
+    if(event.target.checked)selected.add(key);else selected.delete(key);renderCommon();
+  });
+  byId('common-selected').addEventListener('click',event=>{const key=event.target.closest('[data-remove]')?.dataset.remove;if(key){selected.delete(key);renderCommon();}});
+  byId('common-current').addEventListener('click',()=>addTeachers([current()]));
+  byId('common-comparison').addEventListener('click',()=>{
+    const pair=[current(),peer].filter(x=>x?.kind==='teacher');
+    if(pair.length<2){byId('common-message').textContent='2画面それぞれで教員を選んでください。';return;}
+    selected.clear();addTeachers(pair);
+  });
+  byId('common-homeroom').addEventListener('click',()=>{
+    const item=current();
+    const className=item?.kind==='class'?item.n:Object.keys(HOMEROOMS).find(c=>HOMEROOMS[c]===item?.n);
+    const names=className?[HOMEROOMS[className],VICE_HOMEROOMS[className]].filter(Boolean):[];
+    const teachers=names.map(n=>TEACHERS.find(t=>t.n===n)).filter(Boolean);
+    if(teachers.length<2){byId('common-message').textContent='担任・副担任の両方の時間割があるクラスを開いてください。';return;}
+    selected.clear();addTeachers(teachers);
+  });
+  byId('common-clear').addEventListener('click',()=>{selected.clear();renderCommon();});
+  byId('clear-saved').addEventListener('click',()=>{prefs.favorites=[];prefs.recent=[];renderQuick();persist({type:'clear'});});
+  document.addEventListener('click',event=>{
+    const key=event.target.closest('[data-open]')?.dataset.open;if(key){openItem(key);viewerEl.scrollIntoView({block:'start'});}
+  });
+  renderQuick();renderCommon();
+
+  function timeMinute(value){const m=String(value||'').match(/^([01]\d|2[0-3]):([0-5]\d)$/);return m?Number(m[1])*60+Number(m[2]):null;}
+  function loadBellForm(){
+    const bells=prefs.bells[byId('bell-mode').value]||[];
+    for(let p=0;p<7;p++){byId('bell-start-'+p).value=bells[p]?.[0]||'';byId('bell-end-'+p).value=bells[p]?.[1]||'';}
+  }
+  byId('bell-mode').addEventListener('change',loadBellForm);
+  byId('bell-save').addEventListener('click',event=>{
+    event.preventDefault();const bells=[];let previousEnd=-1;
+    for(let p=0;p<7;p++){
+      const start=byId('bell-start-'+p).value,end=byId('bell-end-'+p).value;
+      if(!start&&!end){bells.push(null);continue;}
+      const a=timeMinute(start),b=timeMinute(end);
+      if(a===null||b===null||b<=a||a<previousEnd){byId('bell-status').textContent='開始・終了を両方入れ、時限の順に重ならない時刻を設定してください。';return;}
+      bells.push([start,end]);previousEnd=b;
+    }
+    prefs.bells[byId('bell-mode').value]=bells;persist({type:'bells',mode:byId('bell-mode').value,value:bells});refreshNow();
+    byId('bell-status').textContent='この端末に時刻を保存しました。';
+  });
+  byId('bell-reset').addEventListener('click',()=>{delete prefs.bells[byId('bell-mode').value];loadBellForm();persist({type:'bells',mode:byId('bell-mode').value,value:null});refreshNow();byId('bell-status').textContent='この時刻表を消しました。';});
+  function clockData() {
+    const date=new Date(Date.now()+9*60*60*1000);
+    const jsDay=date.getUTCDay(),d=jsDay-1;
+    const minute=date.getUTCHours()*60+date.getUTCMinutes();
+    const bells=prefs.bells[clockLevel+(jsDay===6?'Sat':'')]||[];
+    const period=d>=0?bells.findIndex(x=>x&&timeMinute(x[0])<=minute&&minute<timeMinute(x[1])):-1;
+    return {date,jsDay,d,minute,bells,period};
+  }
+  function refreshNow(){
+    const item=current(),line=byId('now-text');if(!item||!line)return;
+    document.querySelectorAll('.cell.now-cell').forEach(x=>x.classList.remove('now-cell'));
+    const now=clockData(),configured=now.bells.some(Boolean);
+    let currentLabel;
+    if(!configured)currentLabel='現在：時刻未設定';
+    else if(now.period<0)currentLabel='現在：授業時間外';
+    else{
+      const cell=cellData(item,now.period,now.d),av=availability(item,now.period,now.d);
+      currentLabel='現在：'+DAYS[now.d]+'曜'+PERIODS[now.period]+'限 '+(av.kind==='busy'?[cell.top,cell.bottom].filter(Boolean).join(' / '):av.label);
+      byId('viewer').querySelector('.cell[data-period="'+now.period+'"][data-day="'+now.d+'"]')?.classList.add('now-cell');
+    }
+    let next=null;
+    for(let offset=0;offset<8&&!next;offset++){
+      const jsDay=(now.jsDay+offset)%7;if(!jsDay)continue;
+      const d=jsDay-1,bells=prefs.bells[clockLevel+(jsDay===6?'Sat':'')]||[];
+      for(let p=0;p<7;p++){
+        if(!bells[p]||(offset===0&&timeMinute(bells[p][0])<=now.minute)||availability(item,p,d).kind!=='busy')continue;
+        const cell=cellData(item,p,d);next=DAYS[d]+'曜'+PERIODS[p]+'限 '+[cell.top,cell.bottom].filter(Boolean).join(' / ');break;
+      }
+    }
+    line.textContent=currentLabel+' ／ 次の授業：'+(next||'登録時刻内に見つかりません');
+  }
+  function refreshDifference(){
+    const item=current();if(!item)return;
+    const cells=[...viewerEl.querySelectorAll('.table .cell')];
+    for(const cell of cells){
+      cell.classList.remove('diff-free','diff-partial','diff-busy','diff-related','diff-rest','diff-unknown');
+      delete cell.dataset.difference;
+      if(!differenceEnabled||!peer)continue;
+      const p=Number(cell.dataset.period),d=Number(cell.dataset.day);
+      const status=isRelated(item,peer,p,d)?{kind:'related',label:'同じ授業に関係'}:compareStatus([item,peer],p,d);
+      cell.classList.add('diff-'+status.kind);cell.dataset.difference=status.kind;
+      cell.title=status.label+' / '+item.n+'：'+availability(item,p,d).label+' / '+peer.n+'：'+availability(peer,p,d).label;
+    }
+    const info=byId('difference-info');
+    if(info){info.hidden=!differenceEnabled;info.innerHTML=peer?'比較相手：'+esc(peer.n)+legend:'もう一方の画面で時間割を選ぶと、差分を強調します。';}
+  }
+  function chooseReference(list){
+    if(list.length===1){openItem(list[0].key);viewerEl.scrollIntoView({block:'start'});return;}
+    document.querySelector('.reference-dialog')?.remove();
+    const overlay=document.createElement('div');overlay.className='reference-dialog';
+    overlay.innerHTML='<section class="reference-card" role="dialog" aria-modal="true" aria-label="移動先の時間割"><h2>開く時間割を選択</h2><div class="feature-list">'+list.map(itemButton).join('')+'</div><button class="feature-btn" type="button" data-close-reference>閉じる</button></section>';
+    overlay.addEventListener('click',event=>{if(event.target===overlay||event.target.closest('[data-close-reference],[data-open]'))overlay.remove();});
+    overlay.addEventListener('keydown',event=>{if(event.key==='Escape')overlay.remove();});
+    document.body.append(overlay);overlay.querySelector('button').focus();
+  }
+  const baseRender=renderViewer;
+  renderViewer=function(item){
+    baseRender(item);
+    if(item.kind==='class')clockLevel=parseClassParts(item.n).g<=3?'middle':'high';
+    const actions=document.createElement('div');actions.className='viewer-actions';
+    actions.innerHTML='<button id="favorite-toggle" class="feature-btn" type="button" aria-pressed="false">☆ お気に入り</button><button id="timetable-pdf" class="feature-btn" type="button">時間割をPDF保存</button><span id="pdf-status" class="feature-note" role="status"></span>';
+    const now=document.createElement('div');now.className='now-line';
+    now.innerHTML='<div id="now-text" aria-live="off"></div><div class="feature-row"><label>時刻表 <select id="clock-level"><option value="high">高校</option><option value="middle">中学</option></select></label><button id="clock-edit" type="button" class="feature-btn">時刻を設定</button></div>';
+    const diff=document.createElement('div');diff.className='diff-info';diff.id='difference-info';diff.hidden=true;
+    viewerEl.querySelector('.viewerTop').after(actions,now,diff);
+    if(item.kind==='teacher'){
+      const p=profile(item),section=document.createElement('section');section.className='teacher-profile';
+      const homerooms=Object.keys(HOMEROOMS).filter(c=>HOMEROOMS[c]===item.n);
+      const vice=Object.keys(VICE_HOMEROOMS).filter(c=>VICE_HOMEROOMS[c]===item.n);
+      const links=names=>names.map(n=>{const c=CLASSES.find(x=>x.n===n);return c?itemButton(c):esc(n);}).join(' ');
+      section.innerHTML='<div class="profile-line"><strong>担当科目：</strong><span>'+esc(p.subjects.join(' / ')||'データなし')+'</span></div><div class="profile-line"><strong>担当クラス：</strong>'+links(p.classes)+'</div>'+
+        (homerooms.length?'<div class="profile-line"><strong>担任：</strong>'+links(homerooms)+'</div>':'')+
+        (vice.length?'<div class="profile-line"><strong>副担任：</strong>'+links(vice)+'</div>':'')+
+        '<div class="profile-line"><strong>所属・役職：</strong><span>'+esc(dutyTextsOf(item.n).join(' / ')||'登録なし')+'</span></div>';
+      diff.after(section);
+    }
+    viewerEl.querySelectorAll('.table tbody tr').forEach((row,p)=>row.querySelectorAll('td').forEach((td,d)=>{
+      td.dataset.period=String(p);td.dataset.day=String(d);
+      const targets=refs(item,p,d);if(!targets.length)return;
+      td.dataset.linked='true';td.tabIndex=0;
+      const label=DAYS[d]+'曜'+PERIODS[p]+'限 '+targets.map(x=>x.n).join(' / ')+' の時間割を開く';
+      const bottom=td.querySelector('.bottomtext');
+      bottom.innerHTML='<button type="button" class="cell-link" aria-label="'+esc(label)+'">'+esc(cellData(item,p,d).bottom)+'</button>';
+      td.addEventListener('click',()=>chooseReference(targets));
+      td.addEventListener('keydown',event=>{if(event.target===td&&(event.key==='Enter'||event.key===' ')){event.preventDefault();chooseReference(targets);}});
+    }));
+    byId('clock-level').value=clockLevel;
+    byId('clock-level').addEventListener('change',event=>{clockLevel=event.target.value;refreshNow();});
+    byId('clock-edit').addEventListener('click',()=>{byId('clock-tools').open=true;byId('bell-mode').value=clockLevel;loadBellForm();byId('clock-tools').scrollIntoView({block:'start'});});
+    byId('favorite-toggle').addEventListener('click',()=>{
+      prefs.favorites=prefs.favorites.includes(item.key)?prefs.favorites.filter(k=>k!==item.key):[...prefs.favorites,item.key];
+      renderQuick();persist({type:'favorite',key:item.key,enabled:prefs.favorites.includes(item.key)});
+    });
+    byId('timetable-pdf').addEventListener('click',()=>exportTimetablePdf(item));
+    refreshNow();refreshDifference();renderQuick();
+    post({type:'timetable-selection',key:item.key});recordVisit(item.key);
+  };
+  function wrapCanvasText(ctx,text,maxWidth) {
+    const lines=[];
+    for(const paragraph of String(text||'').split('\n')){
+      let line='';
+      for(const char of paragraph){if(line&&ctx.measureText(line+char).width>maxWidth){lines.push(line);line='';}line+=char;}
+      lines.push(line);
+    }
+    return lines;
+  }
+  async function exportTimetablePdf(item){
+    const status=byId('pdf-status'),button=byId('timetable-pdf');
+    button.disabled=true;status.textContent='PDFを作成しています…';
+    try{
+      if(document.fonts?.ready)await document.fonts.ready;
+      const canvas=document.createElement('canvas');canvas.width=1240;canvas.height=1754;
+      const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas unavailable');
+      const font=(size,weight)=>{ctx.font=(weight||'400')+' '+size+'px -apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,"Noto Sans CJK JP",sans-serif';};
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,1240,1754);ctx.textBaseline='top';
+      ctx.fillStyle='#1b2233';font(24,'700');ctx.fillText('2026年度 時間割',60,54);
+      font(42,'700');ctx.fillText(item.n+(item.kind==='teacher'?' 先生':''),60,96);
+      font(18);ctx.fillStyle='#5e6a85';ctx.fillText('教員別 ver2.1 / クラス別 ver3.2',60,154);
+      const metadata=item.kind==='teacher'?['担当科目：'+profile(item).subjects.join(' / '),'担当クラス：'+profile(item).classes.join(' / '),'所属・役職：'+dutyTextsOf(item.n).join(' / '),(STATUS_TEXTS[item.n]|| (REST_DAYS[item.n]?'指定休：'+REST_DAYS[item.n]:''))]:['担任：'+(HOMEROOMS[item.n]||'未登録'),'副担任：'+(VICE_HOMEROOMS[item.n]||'未登録')];
+      let metaY=190;font(18);
+      for(const text of metadata){if(!text)continue;const lines=wrapCanvasText(ctx,text,1120).slice(0,2);for(const line of lines){if(metaY>330)break;ctx.fillText(line,60,metaY);metaY+=24;}}
+      const x=60,y=390,periodWidth=70,colWidth=175,rowHeight=146,headerHeight=52;
+      function box(bx,by,bw,bh,color){ctx.fillStyle=color;ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='#b8c0d6';ctx.lineWidth=1.5;ctx.strokeRect(bx,by,bw,bh);}
+      box(x,y,periodWidth,headerHeight,'#eef2fa');
+      font(24,'700');ctx.fillStyle='#1b2233';ctx.textAlign='center';ctx.fillText('限',x+periodWidth/2,y+12);
+      for(let d=0;d<6;d++){box(x+periodWidth+d*colWidth,y,colWidth,headerHeight,'#eef2fa');ctx.fillStyle='#1b2233';ctx.fillText(DAYS[d],x+periodWidth+(d+.5)*colWidth,y+12);}
+      function cellText(text,cx,cy,maxHeight,size,weight,color){
+        let lines;
+        do{font(size,weight);lines=wrapCanvasText(ctx,text,colWidth-16);if(lines.length*size*1.2<=maxHeight||size<=12)break;size--;}while(size>12);
+        ctx.fillStyle=color;const lineHeight=size*1.2;
+        lines.forEach((line,i)=>ctx.fillText(line,cx,cy+i*lineHeight));
+      }
+      for(let p=0;p<7;p++){
+        const ry=y+headerHeight+p*rowHeight;
+        box(x,ry,periodWidth,rowHeight,'#eef2fa');font(26,'700');ctx.fillStyle='#1b2233';ctx.fillText(PERIODS[p],x+periodWidth/2,ry+58);
+        for(let d=0;d<6;d++){
+          const cell=cellData(item,p,d)||{top:'',bottom:'',color:'#fff'},cx=x+periodWidth+d*colWidth;
+          box(cx,ry,colWidth,rowHeight,normalizeCellColor(cell.top,cell.color));
+          cellText(cell.top,cx+colWidth/2,ry+12,64,24,'700','#1b2233');
+          cellText(cell.bottom,cx+colWidth/2,ry+82,54,20,'400','#374151');
+        }
+      }
+      font(17);ctx.textAlign='left';ctx.fillStyle='#5e6a85';ctx.fillText('上段：科目等 / 下段：担当・クラス',60,1500);
+      ctx.fillText('このPDFを外部に共有しないでください。',60,1530);
+      ctx.textAlign='center';ctx.fillText('1',620,1674);
+      const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('JPEG encoding failed')),'image/jpeg',0.95));
+      const bytes=await jpeg.arrayBuffer();
+      post({type:'timetable-pdf',bytes,filename:'時間割_'+item.n.replace(/[\\/:*?"<>|]/g,'_')+'.pdf'});
+      status.textContent='PDFの保存画面を開きました。';
+    }catch{status.textContent='PDFを作成できませんでした。もう一度お試しください。';}
+    finally{if(button.isConnected)button.disabled=false;}
+  }
+  window.addEventListener('message',event=>{
+    if(event.source!==parent||!event.data)return;
+    const data=event.data;
+    if(data.type==='timetable-preferences'){
+      const bellsChanged=JSON.stringify(prefs.bells)!==JSON.stringify(data.preferences?.bells||{});
+      prefs={favorites:Array.isArray(data.preferences?.favorites)?data.preferences.favorites:[],recent:Array.isArray(data.preferences?.recent)?data.preferences.recent:[],bells:data.preferences?.bells||{}};
+      const first=!prefsReady;prefsReady=true;renderQuick();if(first||bellsChanged)loadBellForm();refreshNow();
+      if(first&&current())recordVisit(current().key);
+    }
+    if(data.type==='timetable-comparison'){
+      peer=ITEMS.find(x=>x.key===data.key)||null;differenceEnabled=!!data.enabled;refreshDifference();
+    }
+    if(data.type==='timetable-storage-status')byId('saved-status').textContent=data.message;
+  });
+  new MutationObserver(()=>{if(!current())post({type:'timetable-selection',key:''});}).observe(viewerEl,{childList:true});
+  if(current())renderViewer(current());
+  post({type:'timetable-feature-ready'});
+  setInterval(refreshNow,30000);
+})();
+</script></body></html>

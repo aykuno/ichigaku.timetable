@@ -2,6 +2,7 @@ import { webcrypto, randomBytes, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { decryptHtml } from './crypto.mjs';
+import { applyTimetablePresentation } from './presentation.mjs';
 export const activityBridge = "\n;(() => {\n  let lastSent = 0;\n  for (const eventName of ['pointerdown','keydown','touchstart','wheel']) {\n    window.addEventListener(eventName, () => {\n      const now = Date.now();\n      if (now - lastSent >= 5000) {\n        lastSent = now;\n        parent.postMessage({type:'timetable-activity'}, '*');\n      }\n    }, {passive:true});\n  }\n})();\n";
 const features = readFileSync(new URL('./features.js',import.meta.url),'utf8');
 const featureStyles = readFileSync(new URL('./features.css',import.meta.url),'utf8');
@@ -29,9 +30,9 @@ export async function renderPage(plaintext, payload) {
   const gate = await readFile(new URL('./gate.js', import.meta.url), 'utf8');
   const preferences = await readFile(new URL('./preferences.js',import.meta.url),'utf8');
   const pdf = await readFile(new URL('./pdf.js',import.meta.url),'utf8');
-  const script = '\n' + decryptHtml.toString() + '\n\n' + preferences + '\n' + pdf + '\n' + gate;
+  const script = '\n' + decryptHtml.toString() + '\n\n' + preferences + '\n' + pdf + '\n' + applyTimetablePresentation.toString() + '\n' + gate;
   const digest = value => createHash('sha256').update(value, 'utf8').digest('base64');
-  const contentHashes = [...plaintext.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+  const contentHashes = [...applyTimetablePresentation(plaintext).matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map(match => "'sha256-" + digest(match[1]) + "'").join(' ');
   return template.replace('@@GATE_HASH@@', digest(script)).replace('@@CONTENT_HASHES@@', contentHashes)
     .replace('@@PAYLOAD@@', JSON.stringify(payload)).replace('@@GATE_SCRIPT@@', script);
