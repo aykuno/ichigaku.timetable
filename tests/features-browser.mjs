@@ -80,7 +80,21 @@ try{
     const bells=[['08:30','09:20'],['09:30','10:20'],['10:30','11:20'],['11:30','12:20'],['13:10','14:00'],['14:10','15:00'],['15:10','16:00']];
     for(let p=0;p<7;p++){await app.locator('#bell-start-'+p).fill(bells[p][0]);await app.locator('#bell-end-'+p).fill(bells[p][1]);}
     await app.locator('#bell-form button[type="submit"]').click();
-    await app.locator('#now-text').filter({hasText:'現在：月曜1限'}).waitFor();
+    try {await app.locator('#now-text').filter({hasText:'現在：月曜1限'}).waitFor();}
+    catch(error){
+      console.log('clock diagnostics',JSON.stringify({
+        now:await app.locator('#now-text').textContent(),
+        childDate:await app.locator('body').evaluate(()=>new Date().toISOString()),
+        parentDate:await page.evaluate(()=>new Date().toISOString()),
+        level:await app.locator('#clock-level').inputValue(),
+        mode:await app.locator('#bell-mode').inputValue(),
+        bellStatus:await app.locator('#bell-status').textContent(),
+        starts:await app.locator('#bell-grid input').evaluateAll(nodes=>nodes.map(n=>n.value)),
+        stored:await page.evaluate(async password=>{const raw=localStorage.getItem('ichigaku.timetable.preferences.v1');return (await preferenceCrypto.open(password,JSON.parse(raw))).preferences;},password),
+        errors
+      }));
+      throw error;
+    }
     assert.equal(await app.locator('.cell.now-cell').count(),1);
     assert.ok((await app.locator('#now-text').textContent()).includes('次の授業：水曜3限 家庭'));
     await page.waitForFunction(async password=>{
