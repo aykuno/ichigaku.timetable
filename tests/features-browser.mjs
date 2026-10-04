@@ -79,7 +79,7 @@ try{
     await app.locator('#bell-mode').selectOption('high');
     const bells=[['08:30','09:20'],['09:30','10:20'],['10:30','11:20'],['11:30','12:20'],['13:10','14:00'],['14:10','15:00'],['15:10','16:00']];
     for(let p=0;p<7;p++){await app.locator('#bell-start-'+p).fill(bells[p][0]);await app.locator('#bell-end-'+p).fill(bells[p][1]);}
-    await app.locator('#bell-form button[type="submit"]').click();
+    await app.locator('#bell-save').click();
     try {await app.locator('#now-text').filter({hasText:'現在：月曜1限'}).waitFor();}
     catch(error){
       console.log('clock diagnostics',JSON.stringify({
