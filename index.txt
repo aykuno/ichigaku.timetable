@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+<meta name="googlebot" content="noindex,nofollow,nosnippet">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-6qXlKc1/RxqEe6CjviZFNBztUhT6aob5EWYMCLSbUOw=' ; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>時間割検索｜ログイン</title>
+<style>
+:root{color-scheme:light;--bg:#f6f7fb;--text:#1b2233;--muted:#5e6a85;--accent:#2d5bff}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;background:var(--bg);color:var(--text)}
+#login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:22px}
+.card{width:min(100%,420px);padding:30px 26px;background:#fff;border:1px solid #d7dbe7;border-radius:18px;box-shadow:0 10px 30px rgba(28,42,89,.07)}
+h1{font-size:23px;margin:0 0 10px}
+.description{font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 25px}
+label{font-size:14px;font-weight:700}
+.password-row{display:flex;margin-top:8px;gap:8px}
+input{min-width:0;flex:1;height:46px;border:1px solid #b8c0d6;border-radius:10px;padding:0 12px;font-size:16px}
+button{font:inherit;cursor:pointer;border-radius:10px}
+button:disabled{cursor:wait;opacity:.65}
+.secondary{border:1px solid #b8c0d6;background:#fff;color:var(--text);padding:0 12px}
+#unlock{width:100%;margin-top:17px;height:46px;background:var(--accent);color:#fff;border:0;font-weight:700}
+#status{margin:15px 0 0;min-height:2.8em;font-size:13px;line-height:1.6;color:#ad2238}
+.private-note{margin:6px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
+.app-bar{height:56px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border-bottom:1px solid #d7dbe7}
+.app-bar span{font-size:14px;font-weight:700}
+#logout{padding:8px 12px;font-size:13px}
+iframe{display:block;width:100%;height:calc(100vh - 56px);height:calc(100dvh - 56px);border:0;background:var(--bg)}
+:focus-visible{outline:3px solid #90a8ff;outline-offset:3px}
+</style>
+</head>
+<body>
+<main id="login">
+  <section class="card" aria-labelledby="login-title">
+    <h1 id="login-title">時間割検索</h1>
+    <p class="description">閲覧にはパスワードが必要です。<br>案内されたパスワードを入力してください。</p>
+    <form id="login-form" action="#" autocomplete="off">
+      <label for="password">パスワード</label>
+      <div class="password-row">
+        <input id="password" type="password" disabled required autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="status">
+        <button id="show-password" class="secondary" type="button" disabled aria-pressed="false" aria-controls="password">表示</button>
+      </div>
+      <button id="unlock" type="submit" disabled>時間割を開く</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+    <p class="private-note">パスワードや時間割を外部に共有しないでください。<br>30分間操作がない場合は、自動でログアウトします。</p>
+    <noscript><p>このサイトの利用にはJavaScriptを有効にしてください。</p></noscript>
+  </section>
+</main>
+<section id="app" hidden>
+  <div class="app-bar"><span>時間割検索</span><button id="logout" class="secondary" type="button">ログアウト</button></div>
+  <div id="frame-container"></div>
+</section>
+<script id="encrypted-payload" type="application/json">null</script>
+<script>
+async function decryptHtml(payload, password) {
+  if (!payload || payload.version !== 1 || payload.algorithm !== 'AES-256-GCM' ||
+      payload.kdf !== 'PBKDF2-SHA-256' || payload.iterations !== 600000 ||
+      typeof password !== 'string' || !password.length || password.length > 1024) {
+    throw new Error('Invalid protected document');
+  }
+  function decode(value, expectedLength) {
+    if (typeof value !== 'string' || value.length > 1400000 ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) {
+      throw new Error('Invalid encrypted data');
+    }
+    const bytes = Uint8Array.from(atob(value), c => c.charCodeAt(0));
+    if ((expectedLength && bytes.length !== expectedLength) ||
+        (!expectedLength && bytes.length < 17)) throw new Error('Invalid encrypted data');
+    return bytes;
+  }
+  const salt = decode(payload.salt, 16);
+  const iv = decode(payload.iv, 12);
+  const ciphertext = decode(payload.ciphertext);
+  const material = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    {name: 'PBKDF2', hash: 'SHA-256', salt, iterations: payload.iterations},
+    material, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  const plaintext = await crypto.subtle.decrypt(
+    {name: 'AES-GCM', iv, tagLength: 128}, key, ciphertext);
+  return new TextDecoder('utf-8', {fatal: true}).decode(plaintext);
+}
+
+(() => {
+  'use strict';
+  const form = document.getElementById('login-form');
+  const input = document.getElementById('password');
+  const submit = document.getElementById('unlock');
+  const toggle = document.getElementById('show-password');
+  const status = document.getElementById('status');
+  const login = document.getElementById('login');
+  const app = document.getElementById('app');
+  const container = document.getElementById('frame-container');
+  let payload, frame = null, generation = 0, busy = false, timer = null;
+  const IDLE_MS = 30 * 60 * 1000;
+
+  function setBusy(value) {
+    busy = value;
+    input.disabled = value;
+    toggle.disabled = value;
+    submit.disabled = value;
+    submit.textContent = value ? '確認しています…' : '時間割を開く';
+    form.setAttribute('aria-busy', String(value));
+  }
+  function resetTimer() {
+    clearTimeout(timer);
+    if (frame) timer = setTimeout(() => lock('30分間操作がなかったため、ログアウトしました。'), IDLE_MS);
+  }
+  function lock(message = '') {
+    generation++;
+    clearTimeout(timer);
+    if (frame) {
+      frame.remove();
+      frame = null;
+    }
+    container.replaceChildren();
+    app.hidden = true;
+    login.hidden = false;
+    form.reset();
+    input.type = 'password';
+    toggle.textContent = '表示';
+    toggle.setAttribute('aria-pressed', 'false');
+    input.removeAttribute('aria-invalid');
+    status.textContent = message;
+    setBusy(false);
+  }
+  try {
+    payload = JSON.parse(document.getElementById('encrypted-payload').textContent);
+    if (payload === null) {
+      status.textContent = '現在準備中です。';
+      input.disabled = true;
+      toggle.disabled = true;
+      submit.disabled = true;
+      return;
+    }
+    if (!globalThis.isSecureContext || !globalThis.crypto?.subtle) {
+      throw new Error('Web Crypto unavailable');
+    }
+    input.disabled = false;
+    toggle.disabled = false;
+    submit.disabled = false;
+  } catch {
+    status.textContent = 'HTTPSで開き、最新のSafariまたはChromeをご利用ください。';
+    submit.disabled = true;
+    return;
+  }
+  toggle.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    toggle.textContent = show ? '隠す' : '表示';
+    toggle.setAttribute('aria-pressed', String(show));
+  });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy) return;
+    const password = input.value;
+    if (!password) {
+      status.textContent = 'パスワードを入力してください。';
+      input.focus();
+      return;
+    }
+    const attempt = ++generation;
+    input.value = '';
+    input.removeAttribute('aria-invalid');
+    status.textContent = '';
+    setBusy(true);
+    try {
+      const html = await decryptHtml(payload, password);
+      if (attempt !== generation) return;
+      frame = document.createElement('iframe');
+      frame.title = 'クラス・教員時間割検索';
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.setAttribute('referrerpolicy', 'no-referrer');
+      frame.srcdoc = html;
+      container.replaceChildren(frame);
+      login.hidden = true;
+      app.hidden = false;
+      resetTimer();
+    } catch {
+      if (attempt === generation) {
+        status.textContent = 'パスワードが違うか、ファイルが破損しています。';
+        input.setAttribute('aria-invalid', 'true');
+      }
+    } finally {
+      if (attempt === generation) {
+        setBusy(false);
+        if (!frame) input.focus();
+      }
+    }
+  });
+  document.getElementById('logout').addEventListener('click', () => {
+    lock('ログアウトしました。');
+    input.focus();
+  });
+  window.addEventListener('message', event => {
+    if (frame && event.source === frame.contentWindow &&
+        event.data?.type === 'timetable-activity') resetTimer();
+  });
+  for (const type of ['pointerdown', 'keydown']) {
+    window.addEventListener(type, () => { if (frame) resetTimer(); }, {passive: true});
+  }
+  window.addEventListener('pagehide', () => lock());
+  window.addEventListener('pageshow', event => { if (event.persisted) lock(); });
+})();
+</script>
+</body>
+</html>

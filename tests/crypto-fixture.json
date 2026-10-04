@@ -1,0 +1,13 @@
+{
+  "plaintext": "<!doctype html><html lang=\"ja\"><body>テスト</body></html>",
+  "password": "public-test-password",
+  "payload": {
+    "version": 1,
+    "algorithm": "AES-256-GCM",
+    "kdf": "PBKDF2-SHA-256",
+    "iterations": 600000,
+    "salt": "AAECAwQFBgcICQoLDA0ODw==",
+    "iv": "EBESExQVFhcYGRob",
+    "ciphertext": "GDjQXRQ6w6dSINHUiL19RxWI5KadzL7rL5Mpkz9fqLKXm8SBr0D8pfRhhHfpdLplnUgxunN2sTBjQIKQebN1eO8/2NYwSDnmFqMjSA=="
+  }
+}

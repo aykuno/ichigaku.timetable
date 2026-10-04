@@ -1,0 +1,22 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { resolve, relative, isAbsolute } from 'node:path';
+import { prepareContent, encryptHtml, renderPage } from './build-lib.mjs';
+import { decryptHtml } from './crypto.mjs';
+if (process.env.GITHUB_ACTIONS === 'true') throw new Error('Build locally only: private input and passwords must stay out of public CI.');
+const privateRoot = resolve('private');
+const input = process.argv[2] ? resolve(process.argv[2]) : null;
+const rel = input ? relative(privateRoot, input) : '..';
+if (!input || rel.startsWith('..') || isAbsolute(rel)) throw new Error('Usage: node tools/build.mjs private/timetable.txt');
+const password = process.env.TIMETABLE_PASSWORD || randomBytes(24).toString('base64url');
+if (password.length < 24 || password.length > 1024) throw new Error('Use a unique password of at least 24 characters.');
+const html = prepareContent(await readFile(input, 'utf8'));
+const payload = await encryptHtml(html, password);
+if (await decryptHtml(payload, password) !== html) throw new Error('Verification failed.');
+const protectedPage = await renderPage(html, payload);
+if (protectedPage.includes(password)) throw new Error('Password found in generated output.');
+await writeFile('index.html', protectedPage, 'utf8');
+await writeFile('index.txt', protectedPage, 'utf8');
+// 404.html stays unprovisioned; never include private content in error pages.
+console.log('Generated index.html and index.txt. Upload only these protected files.');
+console.log('Password (keep private; never commit): ' + password);
