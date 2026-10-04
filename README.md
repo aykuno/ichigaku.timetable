@@ -1,0 +1,1 @@
+# ichigaku.timetable
