@@ -33,22 +33,50 @@ try {
       await page.locator('#status').filter({hasText:'パスワードが違う'}).waitFor();
       assert.equal(await page.locator('iframe').count(),0);
       await page.locator('#password').fill(password); await page.locator('#unlock').click();
-      const frame = page.frameLocator('iframe');
+      const frame = page.frameLocator('#screen-1 iframe');
       await frame.locator('#ready').filter({hasText:'表示できました'}).waitFor();
       assert.equal(await page.locator('iframe').getAttribute('sandbox'),'allow-scripts');
       await frame.locator('#query').fill('6-2');
       assert.equal(await frame.locator('#result').textContent(),'6-2');
+      await page.locator('#compare').click();
+      const second = page.frameLocator('#screen-2 iframe');
+      await second.locator('#ready').filter({hasText:'表示できました'}).waitFor();
+      await second.locator('#query').fill('6-3');
+      assert.equal(await frame.locator('#result').textContent(),'6-2');
+      for (const iframe of await page.locator('iframe').all()) {
+        assert.equal(await iframe.getAttribute('sandbox'),'allow-scripts');
+        assert.equal(await iframe.getAttribute('referrerpolicy'),'no-referrer');
+      }
       assert.equal(await page.locator('#password').inputValue(),'');
       assert.deepEqual(await page.evaluate(() => ({local:localStorage.length,session:sessionStorage.length})),{local:0,session:0});
       await page.reload(); assert.equal(await page.locator('iframe').count(),0);
       await page.locator('#password').fill(password); await page.locator('#unlock').click();
       await page.frameLocator('iframe').locator('#ready').filter({hasText:'表示できました'}).waitFor();
+      assert.equal(await page.locator('iframe').count(),1);
+      assert.equal(await page.locator('#compare').getAttribute('aria-pressed'),'false');
+      await page.locator('#compare').click();
+      await page.frameLocator('#screen-2 iframe').locator('#ready').filter({hasText:'表示できました'}).waitFor();
       await page.locator('#logout').click();
       assert.equal(await page.locator('iframe').count(),0); assert.equal(await page.locator('#login').isVisible(),true);
       await page.clock.install();
       await page.locator('#password').fill(password); await page.locator('#unlock').click();
       await page.frameLocator('iframe').locator('#ready').filter({hasText:'表示できました'}).waitFor();
-      await page.clock.fastForward(30*60*1000+1000);
+      await page.locator('#compare').click();
+      const idleSecond=page.frameLocator('#screen-2 iframe');
+      await idleSecond.locator('#ready').filter({hasText:'表示できました'}).waitFor();
+      await page.clock.fastForward(29*60*1000);
+      await page.evaluate(()=>{
+        window.comparisonActivityReceived=false;
+        window.addEventListener('message',event=>{
+          if(event.source===document.querySelector('#screen-2 iframe')?.contentWindow &&
+             event.data?.type==='timetable-activity') window.comparisonActivityReceived=true;
+        });
+      });
+      await idleSecond.locator('#query').press('ArrowLeft');
+      await page.waitForFunction(()=>window.comparisonActivityReceived===true);
+      await page.clock.fastForward(2*60*1000);
+      assert.equal(await page.locator('iframe').count(),2);
+      await page.clock.fastForward(28*60*1000+1000);
       assert.equal(await page.locator('iframe').count(),0);
       assert.ok((await page.locator('#status').textContent()).includes('30分間'));
       const changed=Buffer.from(payload.ciphertext,'base64');changed[0]^=1;
@@ -59,7 +87,7 @@ try {
       servedPage=await renderPage(content,payload);
       assert.deepEqual(errors,[]);
       await context.close();
-      console.log(name+': login, rejection, CSP sandbox, search, reload, logout, expiry and tampering passed');
+      console.log(name+': login, rejection, CSP sandbox, search, reload, logout, second-pane activity, two-pane expiry and tampering passed');
     } finally {await browser.close();}
   }
 } finally {await new Promise(resolve => server.close(resolve));}

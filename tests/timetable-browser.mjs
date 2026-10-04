@@ -28,7 +28,7 @@ try {
         assert.equal(await page.locator('iframe').count(),0);
         await page.locator('#password').fill(password);
         await page.locator('#unlock').click();
-        const app=page.frameLocator('iframe');
+        const app=page.frameLocator('#screen-1 iframe');
         await app.locator('#q').waitFor();
         await app.locator('#viewer .title').waitFor();
         await app.locator('#q').fill('6-2');
@@ -51,6 +51,50 @@ try {
         assert.deepEqual(await app.locator('.lessonResult .className').allTextContents(),['6-2']);
         await app.locator('.lessonResult').click();
         assert.equal(await app.locator('#viewer .title').textContent(),'6-2');
+        // The two panes select independently and retain both selections when toggled.
+        assert.equal(await page.locator('iframe').count(),1);
+        assert.equal(await page.locator('#compare').getAttribute('aria-pressed'),'false');
+        await page.locator('#compare').click();
+        assert.equal(await page.locator('#compare').getAttribute('aria-pressed'),'true');
+        const second=page.frameLocator('#screen-2 iframe');
+        await second.locator('#q').waitFor();
+        await second.locator('#viewer .title').waitFor();
+        await second.locator('#q').fill('6-3');
+        await second.locator('#results .result').first().click();
+        await second.locator('#viewer .title').filter({hasText:'6-3'}).waitFor();
+        assert.equal(await app.locator('#viewer .title').textContent(),'6-2');
+        await app.locator('#q').fill('担任A');
+        await app.locator('#results .result').first().click();
+        await app.locator('#viewer .title').filter({hasText:'担任A'}).waitFor();
+        assert.equal(await second.locator('#viewer .title').textContent(),'6-3');
+
+        async function verifyLayout(width) {
+          await page.setViewportSize({width,height:viewport.height});
+          await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>resolve())));
+          const firstBox=await page.locator('#screen-1').boundingBox();
+          const secondBox=await page.locator('#screen-2').boundingBox();
+          if(width>760) {
+            assert.ok(secondBox.x>=firstBox.x+firstBox.width);
+            assert.ok(Math.abs(firstBox.y-secondBox.y)<2);
+          } else {
+            assert.ok(secondBox.y>=firstBox.y+firstBox.height);
+            assert.ok(Math.abs(firstBox.x-secondBox.x)<2);
+          }
+          assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+        }
+        await verifyLayout(viewport.width);
+        await verifyLayout(viewport.width===390?1280:390);
+        await verifyLayout(viewport.width);
+        assert.equal(await app.locator('#viewer .title').textContent(),'担任A');
+        assert.equal(await second.locator('#viewer .title').textContent(),'6-3');
+        await page.locator('#compare').click();
+        assert.equal(await page.locator('#screen-2').isVisible(),false);
+        assert.equal(await page.locator('#compare').getAttribute('aria-pressed'),'false');
+        assert.equal(await app.locator('#viewer .title').textContent(),'担任A');
+        await page.locator('#compare').click();
+        assert.equal(await second.locator('#viewer .title').textContent(),'6-3');
+        assert.equal(await second.locator('#q').inputValue(),'6-3');
+        assert.equal(await app.locator('#q').inputValue(),'担任A');
         const sandboxed=await app.locator('body').evaluate(()=>{
           try {void parent.document.body;return false;}catch{return true;}
         });
@@ -59,7 +103,7 @@ try {
         assert.equal(await page.locator('iframe').count(),0);
         assert.deepEqual(errors,[]);
         await context.close();
-        console.log(name+' '+viewport.width+'px: timetable, class-first order, teacher, hiragana, duties, lesson search and sandbox passed');
+        console.log(name+' '+viewport.width+'px: timetable, class-first order, teacher, hiragana, duties, lesson search, independent comparison, responsive layout, retained selections and sandbox passed');
       }
     } finally {await browser.close();}
   }
