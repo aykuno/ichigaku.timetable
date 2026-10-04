@@ -25,3 +25,5 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Verify password gate in browsers
         run: npm run test:browser
+      - name: Verify timetable application in desktop and mobile browsers
+        run: npm run test:timetable

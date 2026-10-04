@@ -27,7 +27,7 @@ test('encryption preserves exact Japanese HTML with fresh salts and nonces', asy
   assert.notEqual(one.salt,two.salt); assert.notEqual(one.iv,two.iv);
   assert.equal(await decryptHtml(one,secret),fixture.plaintext);
 });
-test('committed preview has encrypted content, correct CSP hashes and no plaintext application', async () => {
+test('committed timetable has encrypted content, correct CSP hashes and no plaintext application', async () => {
   const page = await readFile(new URL('../index.html',import.meta.url),'utf8');
   assert.equal(page,await readFile(new URL('../index.txt',import.meta.url),'utf8'));
   assert.ok(!page.includes('const DATA =')); assert.ok(!page.includes(fixture.password));
@@ -39,7 +39,7 @@ test('committed preview has encrypted content, correct CSP hashes and no plainte
   assert.equal(envelope.iterations,600000);
   assert.equal(Buffer.from(envelope.salt,'base64').length,16);
   assert.equal(Buffer.from(envelope.iv,'base64').length,12);
-  assert.ok(Buffer.from(envelope.ciphertext,'base64').length>100);
+  assert.ok(Buffer.from(envelope.ciphertext,'base64').length>100000);
   assert.ok(page.includes('現在準備中です。'));
   const executable = page.match(/<script>([\s\S]*?)<\/script>/)[1];
   const hash = createHash('sha256').update(executable).digest('base64');

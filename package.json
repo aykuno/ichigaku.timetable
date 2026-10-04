@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test tests/crypto.test.mjs",
     "test:browser": "node tests/browser.mjs",
-    "build": "node tools/build.mjs"
+    "build": "node tools/build.mjs",
+    "test:timetable": "node tests/timetable-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.55.1"
