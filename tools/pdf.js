@@ -4,7 +4,7 @@ function makeTimetablePdf(jpeg) {
   const ascii=text=>Uint8Array.from(text,c=>c.charCodeAt(0)&255);
   function makePdfBlob(jpegs){
     const pdfW=595.275590551, pdfH=841.88976378, parts=[], offsets=[0]; let len=0;
-    function add(part){ if(typeof part==='string') part=ascii(part); parts.push(part); len += part.byteLength || part.length || 0; }
+    function add(part){ if(typeof part==='string'||typeof part==='number') part=ascii(String(part)); parts.push(part); len += part.byteLength || part.length || 0; }
     function obj(n, body){ offsets[n]=len; add(n+' 0 obj\n'); body.forEach(add); add('\nendobj\n'); }
     add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
     const kids=[]; for(let i=0;i<jpegs.length;i++) kids.push((3+i*3)+' 0 R');

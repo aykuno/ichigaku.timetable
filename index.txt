@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
 <meta name="googlebot" content="noindex,nofollow,nosnippet">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-s9lR0yip6UU0yvOaukTOUDrSOC+BSLXD5kgWCdBl7rA=' 'sha256-Hw+gtI4y1fRuKjVkuII2rcoOnefUDxSr+xvBX7i4RIk='; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ftToGGL729P9Q9WAO77aydrCHDhR6HbUhl+d9FI0e94=' 'sha256-Hw+gtI4y1fRuKjVkuII2rcoOnefUDxSr+xvBX7i4RIk='; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>時間割検索｜ログイン</title>
 <style>
 :root{color-scheme:light;--bg:#f6f7fb;--text:#1b2233;--muted:#5e6a85;--accent:#2d5bff}
@@ -167,7 +167,7 @@ function makeTimetablePdf(jpeg) {
   const ascii=text=>Uint8Array.from(text,c=>c.charCodeAt(0)&255);
   function makePdfBlob(jpegs){
     const pdfW=595.275590551, pdfH=841.88976378, parts=[], offsets=[0]; let len=0;
-    function add(part){ if(typeof part==='string') part=ascii(part); parts.push(part); len += part.byteLength || part.length || 0; }
+    function add(part){ if(typeof part==='string'||typeof part==='number') part=ascii(String(part)); parts.push(part); len += part.byteLength || part.length || 0; }
     function obj(n, body){ offsets[n]=len; add(n+' 0 obj\n'); body.forEach(add); add('\nendobj\n'); }
     add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
     const kids=[]; for(let i=0;i<jpegs.length;i++) kids.push((3+i*3)+' 0 R');
