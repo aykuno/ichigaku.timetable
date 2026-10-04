@@ -56,6 +56,7 @@ try{
     await other.locator('#q').fill('担任A');await other.locator('#results .result').first().click();
     await app.locator('.cell[data-period="0"][data-day="0"][data-difference="related"]').waitFor();
     await page.locator('#differences').click();
+    await app.locator('.cell[data-difference]').first().waitFor({state:'detached'});
     assert.equal(await app.locator('.cell[data-difference]').count(),0);
     await page.locator('#differences').click();
     await app.locator('.cell[data-difference="related"]').waitFor();
