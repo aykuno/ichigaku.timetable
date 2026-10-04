@@ -1,0 +1,4 @@
+# Must be served at https://aykuno.github.io/robots.txt to take effect.
+# A project-subdirectory robots.txt is ignored by compliant crawlers.
+User-agent: *
+Disallow: /ichigaku.timetable/

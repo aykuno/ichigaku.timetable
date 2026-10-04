@@ -27,3 +27,5 @@ jobs:
         run: npm run test:browser
       - name: Verify timetable application in desktop and mobile browsers
         run: npm run test:timetable
+      - name: Verify free slots, comparisons, saved favorites, current period and PDF
+        run: npm run test:features

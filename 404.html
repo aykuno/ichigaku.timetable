@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
 <meta name="googlebot" content="noindex,nofollow,nosnippet">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-jjs9CNKMOWUwNGVim9K+O+lTXfFatiBYsqr9PbrQTcM=' ; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-s9lR0yip6UU0yvOaukTOUDrSOC+BSLXD5kgWCdBl7rA=' ; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>時間割検索｜ログイン</title>
 <style>
 :root{color-scheme:light;--bg:#f6f7fb;--text:#1b2233;--muted:#5e6a85;--accent:#2d5bff}
@@ -26,19 +26,25 @@ button:disabled{cursor:wait;opacity:.65}
 #unlock{width:100%;margin-top:17px;height:46px;background:var(--accent);color:#fff;border:0;font-weight:700}
 #status{margin:15px 0 0;min-height:2.8em;font-size:13px;line-height:1.6;color:#ad2238}
 .private-note{margin:6px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
-.app-bar{height:56px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border-bottom:1px solid #d7dbe7;position:sticky;top:0;z-index:1}
+ .app-bar{min-height:56px;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:#fff;border-bottom:1px solid #d7dbe7;position:sticky;top:0;z-index:1}
 .app-bar .app-title{font-size:14px;font-weight:700;white-space:nowrap}
-.app-actions{display:flex;gap:8px}
+.app-actions{display:flex;flex-wrap:wrap;gap:8px;max-width:100%}
 .app-actions button{padding:8px 10px;font-size:13px;white-space:nowrap}
 #compare[aria-pressed="true"]{border-color:var(--accent);background:#eef3ff;color:#263a74}
 #frame-container{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;background:#d7dbe7}
 .screen-panel{min-width:0;background:var(--bg)}
 .screen-heading{display:none;height:32px;margin:0;padding:0 14px;align-items:center;font-size:13px;font-weight:700;color:var(--muted);background:#fff;border-bottom:1px solid #d7dbe7}
-iframe{display:block;width:100%;height:calc(100vh - 56px);height:calc(100dvh - 56px);border:0;background:var(--bg)}
+iframe{display:block;width:100%;height:calc(100vh - var(--bar-height,56px));height:calc(100dvh - var(--bar-height,56px));border:0;background:var(--bg)}
 #app.comparing #frame-container{grid-template-columns:repeat(2,minmax(0,1fr))}
 #app.comparing .screen-heading{display:flex}
-#app.comparing iframe{height:calc(100vh - 88px);height:calc(100dvh - 88px)}
+#app.comparing iframe{height:calc(100vh - var(--bar-height,56px) - 32px);height:calc(100dvh - var(--bar-height,56px) - 32px)}
 @media(max-width:760px){#app.comparing #frame-container{grid-template-columns:minmax(0,1fr)}}
+.pdf-dialog{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:rgba(20,30,55,.5)}
+.pdf-card{background:#fff;border-radius:16px;padding:22px;max-width:440px;width:100%;display:grid;gap:10px}
+.pdf-card h2{font-size:18px;margin:0}
+.pdf-card p{font-size:13px;line-height:1.6;margin:0;word-break:break-word}
+.pdf-card button,.pdf-card a{padding:11px;text-align:center;font-size:14px;border-radius:10px}
+.pdf-card a{background:var(--accent);color:#fff;text-decoration:none}
 :focus-visible{outline:3px solid #90a8ff;outline-offset:3px}
 </style>
 </head>
@@ -65,6 +71,7 @@ iframe{display:block;width:100%;height:calc(100vh - 56px);height:calc(100dvh - 5
     <span class="app-title">時間割検索</span>
     <div class="app-actions">
       <button id="compare" class="secondary" type="button" aria-pressed="false" aria-controls="frame-container">2画面で比較</button>
+      <button id="differences" class="secondary" type="button" aria-pressed="true" hidden>差分表示</button>
       <button id="logout" class="secondary" type="button">ログアウト</button>
     </div>
   </div>
@@ -101,6 +108,90 @@ async function decryptHtml(payload, password) {
   return new TextDecoder('utf-8', {fatal: true}).decode(plaintext);
 }
 
+const preferenceCrypto = (() => {
+  const to64=bytes=>{const values=new Uint8Array(bytes);let binary='';for(let i=0;i<values.length;i+=8192)binary+=String.fromCharCode(...values.subarray(i,i+8192));return btoa(binary);};
+  const from64=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
+  const empty=()=>({favorites:[],recent:[],bells:{}});
+  async function open(password,envelope) {
+    if(envelope && (envelope.version!==1||envelope.iterations!==600000||typeof envelope.salt!=='string'||typeof envelope.iv!=='string'||typeof envelope.ciphertext!=='string'))throw new Error('Invalid saved preferences');
+    const salt=envelope?from64(envelope.salt):crypto.getRandomValues(new Uint8Array(16));
+    if(salt.length!==16)throw new Error('Invalid saved salt');
+    const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
+    const key=await crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:600000},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    let preferences=empty();
+    if(envelope){
+      const iv=from64(envelope.iv);if(iv.length!==12)throw new Error('Invalid saved nonce');
+      const plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv,tagLength:128},key,from64(envelope.ciphertext));
+      const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(plaintext));
+      if(!Array.isArray(parsed.favorites)||!Array.isArray(parsed.recent)||!parsed.bells||typeof parsed.bells!=='object')throw new Error('Invalid saved contents');
+      preferences={favorites:parsed.favorites.filter(x=>typeof x==='string'&&x.length<300).slice(0,500),recent:parsed.recent.filter(x=>typeof x==='string'&&x.length<300).slice(0,5),bells:parsed.bells};
+    }
+    return {key,salt:to64(salt),preferences};
+  }
+  async function seal(session,preferences) {
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,tagLength:128},session.key,new TextEncoder().encode(JSON.stringify(preferences)));
+    return {version:1,iterations:600000,salt:session.salt,iv:to64(iv),ciphertext:to64(ciphertext)};
+  }
+  function update(previous,change) {
+    const preferences=structuredClone(previous);
+    const key=typeof change?.key==='string'&&change.key.length<300&&/^(teacher|class):/.test(change.key)?change.key:null;
+    if(change?.type==='favorite'&&key){
+      preferences.favorites=preferences.favorites.filter(x=>x!==key);
+      if(change.enabled&&preferences.favorites.length<500)preferences.favorites.push(key);
+    }else if(change?.type==='recent'&&key)preferences.recent=[key,...preferences.recent.filter(x=>x!==key)].slice(0,5);
+    else if(change?.type==='clear'){preferences.favorites=[];preferences.recent=[];}
+    else if(change?.type==='bells'&&['high','middle','highSat','middleSat'].includes(change.mode)){
+      if(change.value===null)delete preferences.bells[change.mode];
+      else if(Array.isArray(change.value)&&change.value.length===7){
+        let previousEnd=-1;
+        for(const times of change.value){
+          if(times===null)continue;
+          if(!Array.isArray(times)||times.length!==2||!times.every(x=>typeof x==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(x)))return previous;
+          const toMinute=x=>Number(x.slice(0,2))*60+Number(x.slice(3));
+          const start=toMinute(times[0]),end=toMinute(times[1]);
+          if(end<=start||start<previousEnd)return previous;
+          previousEnd=end;
+        }
+        preferences.bells[change.mode]=change.value;
+      }
+    }
+    return preferences;
+  }
+  return {open,seal,update,empty};
+})();
+
+// PDF object/xref writer adapted from the current exam site: aykuno/exam.kyoutu.selfcheck, kyoutu-ui-lab/pdf-export.js.
+function makeTimetablePdf(jpeg) {
+  const RASTER_W=1240, RASTER_H=1754;
+  const ascii=text=>Uint8Array.from(text,c=>c.charCodeAt(0)&255);
+  function makePdfBlob(jpegs){
+    const pdfW=595.275590551, pdfH=841.88976378, parts=[], offsets=[0]; let len=0;
+    function add(part){ if(typeof part==='string') part=ascii(part); parts.push(part); len += part.byteLength || part.length || 0; }
+    function obj(n, body){ offsets[n]=len; add(n+' 0 obj\n'); body.forEach(add); add('\nendobj\n'); }
+    add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    const kids=[]; for(let i=0;i<jpegs.length;i++) kids.push((3+i*3)+' 0 R');
+    obj(1,['<< /Type /Catalog /Pages 2 0 R >>']);
+    obj(2,['<< /Type /Pages /Kids [',kids.join(' '),'] /Count ',String(jpegs.length),' >>']);
+    for(let i=0;i<jpegs.length;i++){
+      const page=3+i*3, content=page+1, image=page+2, name='Im'+(i+1);
+      const stream='q\n'+pdfW.toFixed(3)+' 0 0 '+pdfH.toFixed(3)+' 0 0 cm\n/'+name+' Do\nQ\n';
+      obj(page,['<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ',pdfW.toFixed(3),' ',pdfH.toFixed(3),'] /Resources << /XObject << /',name,' ',image,' 0 R >> >> /Contents ',content,' 0 R >>']);
+      obj(content,['<< /Length ',String(ascii(stream).length),' >>\nstream\n',stream,'endstream']);
+      offsets[image]=len; add(image+' 0 obj\n');
+      add('<< /Type /XObject /Subtype /Image /Width '+RASTER_W+' /Height '+RASTER_H+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+jpegs[i].length+' >>\nstream\n');
+      add(jpegs[i]); add('\nendstream\nendobj\n');
+    }
+    const xref=len, maxObj=2+jpegs.length*3;
+    add('xref\n0 '+(maxObj+1)+'\n0000000000 65535 f \n');
+    for(let i=1;i<=maxObj;i++) add(String(offsets[i]).padStart(10,'0')+' 00000 n \n');
+    add('trailer\n<< /Size '+(maxObj+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF');
+    return new Blob(parts,{type:'application/pdf'});
+  }
+
+  return makePdfBlob([jpeg]);
+}
+
 (() => {
   'use strict';
   const form = document.getElementById('login-form');
@@ -108,13 +199,74 @@ async function decryptHtml(payload, password) {
   const submit = document.getElementById('unlock');
   const toggle = document.getElementById('show-password');
   const compare = document.getElementById('compare');
+  const differences = document.getElementById('differences');
   const status = document.getElementById('status');
   const login = document.getElementById('login');
   const app = document.getElementById('app');
   const container = document.getElementById('frame-container');
   let payload, sessionHtml = '', frames = [], generation = 0, busy = false, timer = null;
+  const selections = new Map();
+  const SAVED_KEY = 'ichigaku.timetable.preferences.v1';
+  let preferenceSession = null, preferences = preferenceCrypto.empty(), saveQueue = Promise.resolve(), differenceOn = true, activePdf = null;
   const IDLE_MS = 30 * 60 * 1000;
 
+  const bar = document.querySelector('.app-bar');
+  new ResizeObserver(() => document.documentElement.style.setProperty('--bar-height', Math.max(56,bar.offsetHeight)+'px')).observe(bar);
+  function send(frame, message) { frame.contentWindow?.postMessage(message, '*'); }
+  function broadcastPreferences() {
+    for (const frame of frames) send(frame,{type:'timetable-preferences',preferences});
+  }
+  function broadcastComparison() {
+    for (const frame of frames) {
+      const other=frames.find(x=>x!==frame);
+      send(frame,{type:'timetable-comparison',key:other?selections.get(other)||'':'',enabled:app.classList.contains('comparing')&&differenceOn});
+    }
+  }
+  function storageStatus(message) {
+    for (const frame of frames) send(frame,{type:'timetable-storage-status',message});
+  }
+  function savePreferences(change) {
+    if (!preferenceSession) return;
+    preferences=preferenceCrypto.update(preferences,change);
+    broadcastPreferences();
+    const snapshot=structuredClone(preferences),session=preferenceSession,attempt=generation;
+    saveQueue=saveQueue.catch(()=>{}).then(async()=>{
+      const sealed=await preferenceCrypto.seal(session,snapshot);
+      if(attempt!==generation||session!==preferenceSession)return;
+      try { localStorage.setItem(SAVED_KEY,JSON.stringify(sealed));storageStatus('この端末に暗号化して保存しました。'); }
+      catch { storageStatus('このブラウザでは端末に保存できません。表示中のみ保持します。'); }
+    }).catch(()=>{if(attempt===generation)storageStatus('端末への保存に失敗しました。');});
+  }
+  function closePdf() {
+    document.getElementById('pdf-dialog')?.remove();
+    if(activePdf)URL.revokeObjectURL(activePdf.url);
+    activePdf=null;
+  }
+  function showPdf(data) {
+    if(!(data.bytes instanceof ArrayBuffer)||data.bytes.byteLength<100||data.bytes.byteLength>5000000)return;
+    const jpeg=new Uint8Array(data.bytes);
+    if(jpeg[0]!==255||jpeg[1]!==216||jpeg[jpeg.length-2]!==255||jpeg[jpeg.length-1]!==217)return;
+    closePdf();
+    const blob=makeTimetablePdf(jpeg);
+    const filename=String(data.filename||'時間割.pdf').replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,180);
+    activePdf={blob,filename,url:URL.createObjectURL(blob)};
+    const dialog=document.createElement('div');dialog.id='pdf-dialog';dialog.className='pdf-dialog';
+    dialog.innerHTML='<section class="pdf-card" role="dialog" aria-modal="true" aria-labelledby="pdf-title"><h2 id="pdf-title">PDFの準備ができました</h2><p id="pdf-filename"></p><p class="pdf-guide">iPhoneでは「PDFを共有して保存」から「ファイルに保存」を選べます。</p><button id="pdf-share" type="button" class="secondary">PDFを共有して保存</button><a id="pdf-download">PDFをダウンロード</a><button id="pdf-open" type="button" class="secondary">PDFを開く</button><button id="pdf-close" type="button" class="secondary">閉じる</button><p id="pdf-message" role="status"></p></section>';
+    document.body.append(dialog);
+    document.getElementById('pdf-filename').textContent=filename;
+    const download=document.getElementById('pdf-download');download.href=activePdf.url;download.download=filename;
+    const file=new File([blob],filename,{type:'application/pdf'});
+    const share=document.getElementById('pdf-share');
+    share.hidden=!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));
+    share.addEventListener('click',async()=>{
+      try {await navigator.share({files:[file],title:filename});}
+      catch(error){const message=document.getElementById('pdf-message');if(message)message.textContent=error.name==='AbortError'?'共有を取り消しました。':'共有できませんでした。「PDFを開く」かダウンロードをご利用ください。';}
+    });
+    document.getElementById('pdf-open').addEventListener('click',()=>window.open(activePdf.url,'_blank','noopener'));
+    document.getElementById('pdf-close').addEventListener('click',()=>{const frame=frames[0];closePdf();frame?.focus();});
+    dialog.addEventListener('keydown',event=>{if(event.key==='Escape')closePdf();});
+    (share.hidden?download:share).focus();
+  }
   function setBusy(value) {
     busy = value;
     input.disabled = value;
@@ -153,13 +305,22 @@ async function decryptHtml(payload, password) {
     app.classList.toggle('comparing', value);
     compare.setAttribute('aria-pressed', String(value));
     compare.textContent = value ? '1画面に戻す' : '2画面で比較';
+    differences.hidden = !value;
+    broadcastComparison();
   }
   function lock(message = '') {
     generation++;
     clearTimeout(timer);
     container.replaceChildren();
     frames = [];
+    selections.clear();
     sessionHtml = '';
+    preferenceSession = null;
+    preferences = preferenceCrypto.empty();
+    saveQueue = Promise.resolve();
+    differenceOn = true;
+    differences.setAttribute('aria-pressed','true');
+    closePdf();
     setComparing(false);
     app.hidden = true;
     login.hidden = false;
@@ -214,6 +375,17 @@ async function decryptHtml(payload, password) {
     try {
       const html = await decryptHtml(payload, password);
       if (attempt !== generation) return;
+      let stored = null;
+      try {
+        const value=localStorage.getItem(SAVED_KEY);
+        if(value&&value.length<100000)stored=JSON.parse(value);
+      } catch {}
+      let restored;
+      try {restored=await preferenceCrypto.open(password,stored);}
+      catch {restored=await preferenceCrypto.open(password,null);}
+      if(attempt!==generation)return;
+      preferenceSession=restored;
+      preferences=restored.preferences;
       sessionHtml = html;
       container.replaceChildren();
       frames = [];
@@ -239,13 +411,25 @@ async function decryptHtml(payload, password) {
     setComparing(!app.classList.contains('comparing'));
     resetTimer();
   });
+  differences.addEventListener('click',()=>{
+    differenceOn=!differenceOn;
+    differences.setAttribute('aria-pressed',String(differenceOn));
+    broadcastComparison();
+    resetTimer();
+  });
   document.getElementById('logout').addEventListener('click', () => {
     lock('ログアウトしました。');
     input.focus();
   });
   window.addEventListener('message', event => {
-    if (frames.some(frame => event.source === frame.contentWindow) &&
-        event.data?.type === 'timetable-activity') resetTimer();
+    const frame=frames.find(frame=>event.source===frame.contentWindow);
+    if(!frame||!event.data)return;
+    const data=event.data;
+    if(data.type==='timetable-activity')resetTimer();
+    if(data.type==='timetable-feature-ready'){send(frame,{type:'timetable-preferences',preferences});broadcastComparison();}
+    if(data.type==='timetable-selection'&&typeof data.key==='string'&&data.key.length<300){if(data.key==='')selections.delete(frame);else if(/^(teacher|class):/.test(data.key))selections.set(frame,data.key);else return;broadcastComparison();}
+    if(data.type==='timetable-save')savePreferences(data.change);
+    if(data.type==='timetable-pdf')showPdf(data);
   });
   for (const type of ['pointerdown', 'keydown']) {
     window.addEventListener(type, () => { if (frames.length) resetTimer(); }, {passive: true});

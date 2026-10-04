@@ -31,7 +31,8 @@ test('committed timetable has encrypted content, correct CSP hashes and no plain
   const page = await readFile(new URL('../index.html',import.meta.url),'utf8');
   assert.equal(page,await readFile(new URL('../index.txt',import.meta.url),'utf8'));
   assert.ok(!page.includes('const DATA =')); assert.ok(!page.includes(fixture.password));
-  assert.ok(!/localStorage|sessionStorage/.test(page));
+  assert.ok(!page.includes('sessionStorage'));
+  assert.ok(page.includes('localStorage.setItem(SAVED_KEY,JSON.stringify(sealed))'));
   assert.match(page,/content="noindex,nofollow,noarchive,nosnippet"/); assert.match(page,/connect-src 'none'/);
   const envelope = JSON.parse(page.match(/id="encrypted-payload" type="application\/json">([\s\S]*?)<\/script>/)[1]);
   assert.equal(envelope.version,1);
@@ -62,4 +63,24 @@ test('404 and the build template both tell Google not to index them', async () =
     assert.match(text,/<meta name="robots" content="noindex,nofollow,noarchive,nosnippet">/);
     assert.match(text,/<meta name="googlebot" content="noindex,nofollow,nosnippet">/);
   }
+});
+
+test('saved preferences use a separate authenticated encryption key and nonce', async () => {
+  const {webcrypto}=await import('node:crypto');
+  const source=await readFile(new URL('../tools/preferences.js',import.meta.url),'utf8');
+  const api=new Function('crypto',source+'\nreturn preferenceCrypto;')(webcrypto);
+  const password='public-preference-fixture-password';
+  const session=await api.open(password,null);
+  const preferences={favorites:['teacher:架空教員'],recent:['class:6-2'],bells:{}};
+  const one=await api.seal(session,preferences),two=await api.seal(session,preferences);
+  assert.notEqual(one.iv,two.iv);
+  assert.ok(!JSON.stringify(one).includes('架空教員'));
+  assert.deepEqual((await api.open(password,one)).preferences,preferences);
+  await assert.rejects(api.open('wrong-password',one));
+  const tampered=Buffer.from(one.ciphertext,'base64');tampered[0]^=1;
+  await assert.rejects(api.open(password,{...one,ciphertext:tampered.toString('base64')}));
+  const changed=api.update(preferences,{type:'favorite',key:'class:6-3',enabled:true});
+  assert.deepEqual(changed.favorites,['teacher:架空教員','class:6-3']);
+  const invalid=api.update(changed,{type:'bells',mode:'high',value:[['09:20','08:30'],null,null,null,null,null,null]});
+  assert.deepEqual(invalid,changed);
 });
