@@ -21,15 +21,20 @@ try {
       for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
         const context=await browser.newContext({viewport});
         const page=await context.newPage();
+        page.setDefaultTimeout(10000);
         const errors=[];
-        page.on('pageerror',e=>errors.push(e.message));
+        page.on('pageerror',e=>{errors.push(e.message);console.log(name+' page error: '+e.message);});
+        page.on('console',m=>{if(m.type()==='error')console.log(name+' console error: '+m.text());});
         await page.goto(url);
         assert.equal(await page.locator('iframe').count(),0);
         await page.locator('#password').fill(password);
         await page.locator('#unlock').click();
         const app=page.frameLocator('iframe');
         await app.locator('#q').waitFor();
+        await app.locator('#viewer .title').waitFor();
+        console.log(name+' ready: '+await app.locator('#viewer .title').textContent());
         await app.locator('#q').fill('6-2');
+        console.log(name+' class results: '+JSON.stringify(await app.locator('#results .result .n').allTextContents()));
         await app.locator('#viewer .title').filter({hasText:'6-2'}).waitFor();
         assert.deepEqual(await app.locator('#results .result .n').allTextContents(),['6-2','担任A','副担任B']);
         assert.equal(await app.locator('.table tbody tr').count(),7);
