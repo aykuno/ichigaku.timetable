@@ -39,6 +39,7 @@ try {
         assert.equal(await app.locator('.table tbody td').count(),42);
         assert.ok((await app.locator('#viewer .duties').textContent()).includes('担任：担任A'));
         assert.ok((await app.locator('#viewer .duties').textContent()).includes('副担任：副担任B'));
+        await app.locator('#q').focus();
         await app.locator('#results .result').nth(1).click();
         assert.equal(await app.locator('#viewer .title').textContent(),'担任A');
         assert.ok((await app.locator('#viewer .restday').textContent()).includes('土'));

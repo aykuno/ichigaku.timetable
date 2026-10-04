@@ -8,7 +8,7 @@
   const DEFAULT_BELLS=[['08:35','09:25'],['09:35','10:25'],['10:35','11:25'],['11:35','12:25'],['13:10','14:00'],['14:10','15:00'],['15:10','16:00']];
   const selected=new Set();
   let prefs={favorites:[],recent:[],bells:{}}, prefsReady=false;
-  let peer=null, differenceEnabled=false, clockLevel='high';
+  let peer=null, differenceEnabled=false;
   const profileCache=new Map(), referencesCache=new Map();
   const classRefs=text=>{
     const expanded=String(text||'').replace(/([1-6])-(\d+(?:理|文)?(?:\/\d+(?:理|文)?)+)/g,(_,g,rest)=>rest.split('/').map(c=>g+'-'+c).join(' '));
@@ -83,38 +83,35 @@
   const legend='<div class="status-legend"><span class="status-free">緑：共通空き</span><span class="status-partial">黄：一部に予定</span><span class="status-busy">赤：全員に予定</span><span class="status-related">青：同じ授業に関係</span><span class="status-rest">灰：指定休・休み等</span></div>';
   const hub=document.createElement('section');hub.className='feature-hub';
   hub.innerHTML='<details id="free-tools"><summary>空き教員検索</summary><div class="feature-body"><div class="feature-row"><label>曜日 <select id="free-day">'+DAYS.map((x,i)=>'<option value="'+i+'">'+x+'曜</option>').join('')+'</select></label><label>時限 <select id="free-period">'+PERIODS.map((x,i)=>'<option value="'+i+'">'+x+'限</option>').join('')+'</select></label><label>教科 <select id="free-subject"><option value="">全教科</option>'+['英語','数学','国語','理科','社会','保健体育','芸術','家庭','情報','技術'].map(x=>'<option value="'+x+'">'+x+'科</option>').join('')+'</select></label><label>担当学年 <select id="free-grade"><option value="">全学年</option>'+['中1','中2','中3','高1','高2','高3'].map((x,i)=>'<option value="'+(i+1)+'">'+x+'</option>').join('')+'</select></label><button id="free-search" class="feature-btn primary" type="button">空きを検索</button></div><div id="free-results" aria-live="polite"></div><div class="feature-note">時間割上の空きを表示します。教科・担当学年は授業データから集計しています。</div></div></details>'+
-    '<details id="common-tools"><summary>共通空き時間検索（2人以上）</summary><div class="feature-body"><div class="feature-row"><input id="common-query" type="search" placeholder="教員名・ひらがなで絞る" aria-label="共通空き検索の教員名"><button id="common-current" class="feature-btn" type="button">表示中の教員を追加</button><button id="common-homeroom" class="feature-btn" type="button">担任＋副担任を選ぶ</button><button id="common-comparison" class="feature-btn" type="button">2画面の教員を使う</button><button id="common-clear" class="feature-btn" type="button">選択をクリア</button></div><div id="common-selected" class="feature-list"></div><div id="common-options" class="common-options"></div><div id="common-message" class="feature-note" role="status"></div><div id="common-grid"></div></div></details>'+
-    '<details id="clock-tools"><summary>「今」表示の時刻設定</summary><div class="feature-body"><div class="feature-note">中学・高校共通です。平日6限・木曜7限・土曜4限までの授業時刻を登録済みです。</div><div class="feature-row"><label>設定する時刻表 <select id="bell-mode"><option value="high">平日</option><option value="highSat">土曜</option></select></label></div><div id="bell-form"><div id="bell-grid" class="bell-grid"><span>限</span><span>開始</span><span>終了</span>'+PERIODS.map((x,i)=>'<label>'+x+'</label><input id="bell-start-'+i+'" type="time" aria-label="'+x+'限開始"><input id="bell-end-'+i+'" type="time" aria-label="'+x+'限終了">').join('')+'</div><div class="feature-row" style="margin-top:10px"><button id="bell-save" class="feature-btn primary" type="button">時刻を保存</button><button id="bell-reset" class="feature-btn" type="button">標準時刻に戻す</button></div></div><div id="bell-status" class="feature-note" role="status"></div></div></details>';
+    '<details id="common-tools"><summary>共通の空き時間を探す</summary><div class="feature-body"><p class="common-help">教員名を入力して「追加」。2人以上選ぶと、共通の空き時間を表示します。</p><label class="common-search-label" for="common-query">教員を追加</label><input id="common-query" type="search" placeholder="教員名・ひらがなを入力" autocomplete="off" aria-describedby="common-message"><div id="common-options" class="common-options" aria-live="polite"></div><div class="feature-row common-shortcuts"><button id="common-current" class="feature-btn" type="button" hidden></button><button id="common-homeroom" class="feature-btn" type="button" hidden></button><button id="common-comparison" class="feature-btn" type="button" hidden>比較中の2人を選ぶ</button></div><div class="common-selection"><strong id="common-count">選択中：0人</strong><button id="common-clear" class="feature-btn" type="button" hidden>全員外す</button></div><div id="common-selected" class="feature-list"></div><div id="common-message" class="feature-note" role="status"></div><div id="common-grid"></div></div></details>';
   document.querySelector('.layout').after(hub);
   const lessonTools=byId('lessonSearchBox');if(lessonTools)hub.prepend(lessonTools);
   const quick=document.createElement('section');quick.className='quick-access';quick.id='quick-access';
-  quick.innerHTML='<h2>お気に入り</h2><div id="favorites-list" class="feature-list"></div><h2>最近見た時間割</h2><div id="recent-list" class="feature-list"></div><div class="feature-row"><button id="clear-saved" class="feature-btn" type="button">お気に入り・履歴を消す</button><span id="saved-status" class="feature-note" role="status">端末に暗号化して保存します。</span></div>';
+  quick.innerHTML='<h2>お気に入り</h2><div id="favorites-list" class="feature-list"></div>';
   document.querySelector('.controls').after(quick);
-  const history=document.createElement('details');history.id='recent-tools';
-  const historyTitle=document.createElement('summary');historyTitle.textContent='最近見た時間割・保存設定';
-  const historyBody=document.createElement('div');historyBody.className='feature-body';
-  const recentTitle=quick.querySelectorAll('h2')[1],recentList=byId('recent-list'),savedRow=quick.querySelector('.feature-row');
-  historyBody.append(recentTitle,recentList,savedRow);history.append(historyTitle,historyBody);hub.append(history);
   function compactFavorites(){
     const empty=!byId('favorites-list').querySelector('[data-open]');
     quick.hidden=empty;quick.classList.toggle('favorites-empty',empty);
   }
   new MutationObserver(compactFavorites).observe(byId('favorites-list'),{childList:true});compactFavorites();
+  const searchPanel=document.querySelector('.sidebar');
+  searchPanel.hidden=true;
+  qEl.setAttribute('aria-controls','results');qEl.setAttribute('aria-expanded','false');
+  function toggleSearch(open){searchPanel.hidden=!open;qEl.setAttribute('aria-expanded',String(open));}
+  qEl.addEventListener('input',()=>toggleSearch(!!qEl.value.trim()));
+  qEl.addEventListener('focus',()=>toggleSearch(!!qEl.value.trim()));
+  qEl.addEventListener('keydown',event=>{if(event.key==='Escape')toggleSearch(false);});
   function current(){return ITEMS.find(x=>x.key===state.currentKey);}
   function post(message){parent.postMessage(message,'*');}
   function persist(change){if(prefsReady&&change)post({type:'timetable-save',change});}
   function itemButton(item){return '<button type="button" class="feature-btn" data-open="'+esc(item.key)+'">'+esc(item.n)+'</button>';}
   function renderQuick(){
-    for(const [id,keys] of [['favorites-list',prefs.favorites],['recent-list',prefs.recent]]){
+    for(const [id,keys] of [['favorites-list',prefs.favorites]]){
       const items=keys.map(k=>ITEMS.find(x=>x.key===k)).filter(Boolean);
       byId(id).innerHTML=items.length?items.map(itemButton).join(''):'<span class="feature-note">'+(id==='favorites-list'?'時間割の★ボタンで登録できます。':'まだありません。')+'</span>';
     }
     const star=byId('favorite-toggle');
     if(star){const on=prefs.favorites.includes(state.currentKey);star.textContent=on?'★ 登録済み':'☆ お気に入り';star.setAttribute('aria-pressed',String(on));}
-  }
-  function recordVisit(key){
-    if(!prefsReady)return;
-    prefs.recent=[key,...prefs.recent.filter(k=>k!==key)].slice(0,5);renderQuick();persist({type:'recent',key});
   }
   function renderFree(){
     const d=Number(byId('free-day').value),p=Number(byId('free-period').value);
@@ -131,15 +128,27 @@
   }
   function renderCommonOptions(){
     const query=normalize(byId('common-query').value);
-    byId('common-options').innerHTML=TEACHERS.filter(t=>!query||t.search.includes(query)).map(t=>'<label><input type="checkbox" data-teacher="'+esc(t.key)+'" '+(selected.has(t.key)?'checked':'')+'>'+esc(t.n)+'</label>').join('');
-    byId('common-selected').innerHTML=[...selected].map(k=>ITEMS.find(x=>x.key===k)).filter(Boolean).map(t=>'<button type="button" class="feature-btn" data-remove="'+esc(t.key)+'">'+esc(t.n)+' ×</button>').join('');
+    const matches=query?TEACHERS.filter(t=>t.search.includes(query)&&!selected.has(t.key)):[];
+    byId('common-options').innerHTML=matches.length?matches.map(t=>'<button type="button" class="feature-btn common-add" data-teacher="'+esc(t.key)+'" aria-label="'+esc(t.n)+'を追加"><span>'+esc(t.n)+'</span><span>＋ 追加</span></button>').join(''):(query?'<p class="feature-note">追加できる教員が見つかりません。別の名前で検索してください。</p>':'');
+    byId('common-options').hidden=!query;
+    byId('common-selected').innerHTML=[...selected].map(k=>ITEMS.find(x=>x.key===k)).filter(Boolean).map(t=>'<button type="button" class="feature-btn" data-remove="'+esc(t.key)+'" aria-label="'+esc(t.n)+'を外す">'+esc(t.n)+' ×</button>').join('');
+    byId('common-count').textContent='選択中：'+selected.size+'人';byId('common-clear').hidden=!selected.size;
+    const item=current(),currentButton=byId('common-current'),homeroomButton=byId('common-homeroom');
+    currentButton.hidden=item?.kind!=='teacher'||selected.has(item.key);currentButton.textContent=item?.n+'を追加';
+    const className=item?.kind==='class'?item.n:Object.keys(HOMEROOMS).find(c=>HOMEROOMS[c]===item?.n);
+    const pair=className?[HOMEROOMS[className],VICE_HOMEROOMS[className]].map(n=>TEACHERS.find(t=>t.n===n)).filter(Boolean):[];
+    homeroomButton.hidden=new Set(pair.map(t=>t.key)).size<2;homeroomButton.textContent=(className||'')+'の担任・副担任を選ぶ';
+    byId('common-comparison').hidden=current()?.kind!=='teacher'||peer?.kind!=='teacher'||current().key===peer.key;
   }
   function renderCommon(){
     renderCommonOptions();
     const teachers=[...selected].map(k=>ITEMS.find(x=>x.key===k)).filter(x=>x?.kind==='teacher');
-    if(teachers.length<2){byId('common-grid').innerHTML='';byId('common-message').textContent='教員を2人以上選んでください。';return;}
-    byId('common-message').textContent=teachers.length+'人を比較しています。指定休・休み等を含む時間は共通空きにしません。';
-    byId('common-grid').innerHTML=legend+'<div class="tableWrap"><table class="table common-table"><caption>共通空き時間（'+teachers.length+'人）</caption><thead><tr><th>限</th>'+DAYS.map(d=>'<th>'+d+'</th>').join('')+'</tr></thead><tbody>'+PERIODS.map((p,pi)=>'<tr><th>'+p+'</th>'+DAYS.map((day,di)=>{
+    if(teachers.length<2){byId('common-grid').innerHTML='';byId('common-message').textContent=teachers.length?'あと1人追加してください。':'比較する教員を2人以上追加してください。';return;}
+    let freeCount=0;
+    for(let p=0;p<7;p++)for(let d=0;d<6;d++)if((p<6||d===3)&&(d!==5||p<4)&&compareStatus(teachers,p,d).kind==='free')freeCount++;
+    byId('common-message').textContent=teachers.map(t=>t.n).join('・')+'の共通空き：'+freeCount+'コマ。緑の時間に全員空いています。';
+    byId('common-grid').innerHTML='<div class="status-legend"><span class="status-free">緑：全員空き</span><span class="status-partial">黄：一部に予定</span><span class="status-busy">赤：全員に予定</span><span class="status-rest">灰：指定休など</span></div><div class="tableWrap"><table class="table common-table"><caption>共通空き時間（'+teachers.length+'人）</caption><thead><tr><th>限</th>'+DAYS.map(d=>'<th>'+d+'</th>').join('')+'</tr></thead><tbody>'+PERIODS.map((p,pi)=>'<tr><th>'+p+'</th>'+DAYS.map((day,di)=>{
+      if((pi===6&&di!==3)||(di===5&&pi>=4))return '<td class="common-no-lesson" data-status="no-lesson" aria-label="授業なし">—</td>';
       const status=compareStatus(teachers,pi,di);
       const detail=teachers.map(t=>t.n+'：'+availability(t,pi,di).label).join('\n');
       return '<td data-status="'+status.kind+'" class="status-'+status.kind+'" title="'+esc(detail)+'">'+esc(status.label)+'</td>';
@@ -148,9 +157,9 @@
   function addTeachers(items){items.filter(x=>x?.kind==='teacher').forEach(t=>selected.add(t.key));renderCommon();}
   byId('free-search').addEventListener('click',renderFree);
   byId('common-query').addEventListener('input',renderCommonOptions);
-  byId('common-options').addEventListener('change',event=>{
-    const key=event.target.dataset.teacher;if(!key)return;
-    if(event.target.checked)selected.add(key);else selected.delete(key);renderCommon();
+  byId('common-options').addEventListener('click',event=>{
+    const key=event.target.closest('[data-teacher]')?.dataset.teacher;if(!key)return;
+    selected.add(key);byId('common-query').value='';renderCommon();byId('common-query').focus();
   });
   byId('common-selected').addEventListener('click',event=>{const key=event.target.closest('[data-remove]')?.dataset.remove;if(key){selected.delete(key);renderCommon();}});
   byId('common-current').addEventListener('click',()=>addTeachers([current()]));
@@ -168,42 +177,17 @@
     selected.clear();addTeachers(teachers);
   });
   byId('common-clear').addEventListener('click',()=>{selected.clear();renderCommon();});
-  byId('clear-saved').addEventListener('click',()=>{prefs.favorites=[];prefs.recent=[];renderQuick();persist({type:'clear'});});
   document.addEventListener('click',event=>{
     const key=event.target.closest('[data-open]')?.dataset.open;if(key){openItem(key);viewerEl.scrollIntoView({block:'start'});}
   });
   renderQuick();renderCommon();
 
   function timeMinute(value){const m=String(value||'').match(/^([01]\d|2[0-3]):([0-5]\d)$/);return m?Number(m[1])*60+Number(m[2]):null;}
-  function loadBellForm(){
-    const saturday=byId('bell-mode').value==='highSat';
-    const bells=prefs.bells[byId('bell-mode').value]||DEFAULT_BELLS;
-    for(let p=0;p<7;p++){
-      const disabled=saturday&&p>=4;
-      byId('bell-start-'+p).disabled=disabled;byId('bell-end-'+p).disabled=disabled;
-      byId('bell-start-'+p).value=disabled?'':bells[p]?.[0]||'';
-      byId('bell-end-'+p).value=disabled?'':bells[p]?.[1]||'';
-    }
-  }
-  byId('bell-mode').addEventListener('change',loadBellForm);
-  byId('bell-save').addEventListener('click',event=>{
-    event.preventDefault();const bells=[];let previousEnd=-1;
-    for(let p=0;p<7;p++){
-      const start=byId('bell-start-'+p).value,end=byId('bell-end-'+p).value;
-      if(!start&&!end){bells.push(null);continue;}
-      const a=timeMinute(start),b=timeMinute(end);
-      if(a===null||b===null||b<=a||a<previousEnd){byId('bell-status').textContent='開始・終了を両方入れ、時限の順に重ならない時刻を設定してください。';return;}
-      bells.push([start,end]);previousEnd=b;
-    }
-    prefs.bells[byId('bell-mode').value]=bells;persist({type:'bells',mode:byId('bell-mode').value,value:bells});refreshNow();
-    byId('bell-status').textContent='この端末に時刻を保存しました。';
-  });
-  byId('bell-reset').addEventListener('click',()=>{delete prefs.bells[byId('bell-mode').value];loadBellForm();persist({type:'bells',mode:byId('bell-mode').value,value:null});refreshNow();byId('bell-status').textContent='標準時刻に戻しました。';});
   function clockData() {
     const date=new Date(Date.now()+9*60*60*1000);
     const jsDay=date.getUTCDay(),d=jsDay-1;
     const minute=date.getUTCHours()*60+date.getUTCMinutes();
-    const bells=prefs.bells[clockLevel+(jsDay===6?'Sat':'')]||DEFAULT_BELLS;
+    const bells=DEFAULT_BELLS;
     const period=d>=0?bells.findIndex((x,p)=>x&&(jsDay!==6||p<4)&&(p<6||jsDay===4)&&timeMinute(x[0])<=minute&&minute<timeMinute(x[1])):-1;
     return {date,jsDay,d,minute,bells,period};
   }
@@ -222,7 +206,7 @@
     let next=null;
     for(let offset=0;offset<8&&!next;offset++){
       const jsDay=(now.jsDay+offset)%7;if(!jsDay)continue;
-      const d=jsDay-1,bells=prefs.bells[clockLevel+(jsDay===6?'Sat':'')]||DEFAULT_BELLS;
+      const d=jsDay-1,bells=DEFAULT_BELLS;
       for(let p=0;p<7;p++){
         if((jsDay===6&&p>=4)||(p===6&&jsDay!==4)||!bells[p]||(offset===0&&timeMinute(bells[p][0])<=now.minute)||availability(item,p,d).kind!=='busy')continue;
         const cell=cellData(item,p,d);next=DAYS[d]+'曜'+PERIODS[p]+'限 '+[cell.top,cell.bottom].filter(Boolean).join(' / ');break;
@@ -257,25 +241,25 @@
   const baseRender=renderViewer;
   renderViewer=function(item){
     baseRender(item);
-    clockLevel='high';
+    toggleSearch(false);
     const actions=document.createElement('div');actions.className='viewer-actions';
     actions.innerHTML='<button id="favorite-toggle" class="feature-btn" type="button" aria-pressed="false">☆ お気に入り</button><button id="timetable-pdf" class="feature-btn" type="button">時間割をPDF保存</button><span id="pdf-status" class="feature-note" role="status"></span>';
     const now=document.createElement('div');now.className='now-line';
-    now.innerHTML='<div id="now-text" aria-live="off"></div><div class="feature-row"><label class="clock-level-label">時刻表 <select id="clock-level"><option value="high">高校</option><option value="middle">中学</option></select></label><button id="clock-edit" type="button" class="feature-btn">時刻を設定</button></div>';
+    now.innerHTML='<div id="now-text" aria-live="off"></div>';
     const diff=document.createElement('div');diff.className='diff-info';diff.id='difference-info';diff.hidden=true;
     const lessonLegend=viewerEl.querySelector('.viewerTop .legend');
     if(lessonLegend)viewerEl.querySelector('.tableWrap').after(lessonLegend);
     viewerEl.querySelector('.viewerTop').after(actions,now,diff);
     if(item.kind==='teacher'){
-      const p=profile(item),section=document.createElement('details');section.className='teacher-profile';
+      const p=profile(item),section=document.createElement('section');section.className='teacher-profile';
       const homerooms=Object.keys(HOMEROOMS).filter(c=>HOMEROOMS[c]===item.n);
       const vice=Object.keys(VICE_HOMEROOMS).filter(c=>VICE_HOMEROOMS[c]===item.n);
       const links=names=>names.map(n=>{const c=CLASSES.find(x=>x.n===n);return c?itemButton(c):esc(n);}).join(' ');
-      section.innerHTML='<summary>担当・所属を表示</summary><div class="profile-line"><strong>担当科目：</strong><span>'+esc(p.subjects.join(' / ')||'データなし')+'</span></div><div class="profile-line"><strong>担当クラス：</strong>'+links(p.classes)+'</div>'+
+      section.innerHTML='<h3>担当・所属</h3><div class="profile-line"><strong>担当科目：</strong><span>'+esc(p.subjects.join(' / ')||'データなし')+'</span></div><div class="profile-line"><strong>担当クラス：</strong>'+links(p.classes)+'</div>'+
         (homerooms.length?'<div class="profile-line"><strong>担任：</strong>'+links(homerooms)+'</div>':'')+
         (vice.length?'<div class="profile-line"><strong>副担任：</strong>'+links(vice)+'</div>':'')+
-        '<div class="profile-line"><strong>所属・役職：</strong><span>'+esc(dutyTextsOf(item.n).join(' / ')||'登録なし')+'</span></div>';
-      const duties=viewerEl.querySelector('.duties');if(duties)section.append(duties);
+        '<div class="profile-line"><strong>所属・役職：</strong><span class="profile-duties">'+esc(dutyTextsOf(item.n).join(' / ')||'登録なし')+'</span></div>';
+      const duties=viewerEl.querySelector('.duties');if(duties)section.querySelector('.profile-duties').replaceChildren(duties);
       viewerEl.querySelector('.tableWrap').after(section);
     }
     viewerEl.querySelectorAll('.table tbody tr').forEach((row,p)=>row.querySelectorAll('td').forEach((td,d)=>{
@@ -288,16 +272,13 @@
       td.addEventListener('click',()=>chooseReference(targets));
       td.addEventListener('keydown',event=>{if(event.target===td&&(event.key==='Enter'||event.key===' ')){event.preventDefault();chooseReference(targets);}});
     }));
-    byId('clock-level').value=clockLevel;
-    byId('clock-level').addEventListener('change',event=>{clockLevel=event.target.value;refreshNow();});
-    byId('clock-edit').addEventListener('click',()=>{byId('clock-tools').open=true;byId('bell-mode').value=clockLevel;loadBellForm();byId('clock-tools').scrollIntoView({block:'start'});});
     byId('favorite-toggle').addEventListener('click',()=>{
       prefs.favorites=prefs.favorites.includes(item.key)?prefs.favorites.filter(k=>k!==item.key):[...prefs.favorites,item.key];
       renderQuick();persist({type:'favorite',key:item.key,enabled:prefs.favorites.includes(item.key)});
     });
     byId('timetable-pdf').addEventListener('click',()=>exportTimetablePdf(item));
-    refreshNow();refreshDifference();renderQuick();
-    post({type:'timetable-selection',key:item.key});recordVisit(item.key);
+    refreshNow();refreshDifference();renderQuick();renderCommon();
+    post({type:'timetable-selection',key:item.key});
   };
   function wrapCanvasText(ctx,text,maxWidth) {
     const lines=[];
@@ -358,15 +339,12 @@
     if(event.source!==parent||!event.data)return;
     const data=event.data;
     if(data.type==='timetable-preferences'){
-      const bellsChanged=JSON.stringify(prefs.bells)!==JSON.stringify(data.preferences?.bells||{});
       prefs={favorites:Array.isArray(data.preferences?.favorites)?data.preferences.favorites:[],recent:Array.isArray(data.preferences?.recent)?data.preferences.recent:[],bells:data.preferences?.bells||{}};
-      const first=!prefsReady;prefsReady=true;renderQuick();if(first||bellsChanged)loadBellForm();refreshNow();
-      if(first&&current())recordVisit(current().key);
+      prefsReady=true;renderQuick();refreshNow();
     }
     if(data.type==='timetable-comparison'){
-      peer=ITEMS.find(x=>x.key===data.key)||null;differenceEnabled=!!data.enabled;refreshDifference();
+      peer=ITEMS.find(x=>x.key===data.key)||null;differenceEnabled=!!data.enabled;refreshDifference();renderCommonOptions();
     }
-    if(data.type==='timetable-storage-status')byId('saved-status').textContent=data.message;
   });
   new MutationObserver(()=>{if(!current())post({type:'timetable-selection',key:''});}).observe(viewerEl,{childList:true});
   if(current())renderViewer(current());

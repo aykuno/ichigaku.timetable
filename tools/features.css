@@ -133,3 +133,36 @@
  #viewer .now-line{padding:6px 8px;font-size:11px;line-height:1.5}
  .viewerTop{gap:4px}
 }
+
+/* timetable-focused-v4 */
+[hidden]{display:none!important}
+.layout{grid-template-columns:minmax(0,1fr);gap:8px}
+.sidebar{min-height:0;padding:8px 10px}
+.sidebar #count{font-size:11px;margin-bottom:5px}
+.sidebar .results{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;max-height:180px;overflow:auto;padding:0}
+.sidebar .results .result{min-width:0;max-width:none;padding:8px 10px}
+.sidebar .results .result .n{font-size:13px;white-space:normal}
+.sidebar .results .result .m,.sidebar .results .result .g{display:none}
+.teacher-profile h3{font-size:13px;margin:0 0 5px}
+.teacher-profile>.profile-line{margin-top:4px}
+.teacher-profile .profile-duties .duties{margin:0;font-size:inherit}
+.common-help{font-size:13px;line-height:1.7;margin:0 0 12px}
+.common-search-label{display:block;font-size:13px;font-weight:700;margin-bottom:5px}
+#common-query{display:block;width:100%;min-width:0;height:42px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:16px;background:#fff;color:var(--text)}
+.common-options{margin:6px 0 10px;max-height:220px;display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px}
+.common-add{display:flex;justify-content:space-between;gap:8px;text-align:left;min-width:0}
+.common-add>span:last-child{color:#375ab0;white-space:nowrap;font-size:12px}
+.common-shortcuts{margin:8px 0}
+.common-shortcuts:has(>button:not([hidden]))::before{content:'すぐ選ぶ';width:100%;font-size:11px;color:var(--muted)}
+.common-selection{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px;font-size:13px}
+#common-selected .feature-btn{background:#eef2ff;border-color:#c4cfee}
+#common-message{margin:8px 0;line-height:1.7}
+.common-table{width:100%;min-width:0;table-layout:fixed}
+.common-table th:first-child{width:30px}
+.common-table td{height:58px;overflow-wrap:anywhere}
+.common-table .common-no-lesson{background:#f5f6f9;color:#9299a8}
+@media(max-width:640px){
+ .common-table td{height:58px;font-size:10px;padding:4px 2px}
+ .common-table th{font-size:11px}
+ .common-help{font-size:12px}
+}
