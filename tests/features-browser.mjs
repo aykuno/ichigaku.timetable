@@ -31,7 +31,20 @@ try{
     assert.equal(await app.locator('.controls #lessonSearchBox').count(),0);
     assert.equal(await app.locator('#quick-access').isVisible(),false);
     const initialTableTop=await app.locator('#viewer .table').evaluate(node=>node.getBoundingClientRect().top+scrollY);
-    if(viewport.width<640)assert.ok(initialTableTop<460,'phone timetable starts at '+initialTableTop+'px');
+    if(viewport.width<640)assert.ok(initialTableTop<410,'phone timetable starts at '+initialTableTop+'px');
+    async function assertFrameWidth(){
+      const dimensions=await app.locator('body').evaluate(()=>{
+        const table=document.querySelector('#viewer .table'),columns=[...table.tHead.rows[0].cells];
+        return {viewport:innerWidth,page:document.documentElement.scrollWidth,
+          tableRight:table.getBoundingClientRect().right,
+          dayRights:columns.slice(1).map(node=>node.getBoundingClientRect().right)};
+      });
+      assert.ok(dimensions.page<=dimensions.viewport+1,'content overflow: '+JSON.stringify(dimensions));
+      assert.ok(dimensions.tableRight<=dimensions.viewport+1,'timetable extends off screen');
+      assert.equal(dimensions.dayRights.length,6);
+      assert.ok(dimensions.dayRights.every(right=>right<=dimensions.viewport+1),'weekday columns are off screen');
+    }
+    await assertFrameWidth();
     assert.ok((await app.locator('#now-text').textContent()).includes('現在：月曜1限'));
     // Thursday has a seventh period; the same time on Friday is outside lessons.
     await page.clock.setSystemTime(new Date('2026-10-08T06:20:00Z'));await select('6-2');
@@ -40,11 +53,19 @@ try{
     await page.clock.setSystemTime(new Date('2026-10-09T06:20:00Z'));await select('6-2');
     assert.ok((await app.locator('#now-text').textContent()).includes('現在：授業時間外'));
     assert.equal(await app.locator('.cell.now-cell').count(),0);
+    await page.clock.setSystemTime(new Date('2026-10-10T02:50:00Z'));await select('6-2');
+    assert.ok((await app.locator('#now-text').textContent()).includes('現在：土曜4限'));
+    await page.clock.setSystemTime(new Date('2026-10-10T04:20:00Z'));await select('6-2');
+    assert.ok((await app.locator('#now-text').textContent()).includes('現在：授業時間外'));
+    assert.equal(await app.locator('.cell.now-cell').count(),0);
+    assert.ok(!/次の授業：土曜[567]限/.test(await app.locator('#now-text').textContent()));
     await page.clock.setSystemTime(new Date('2026-10-04T23:40:00Z'));await select('6-2');
     await app.locator('#viewer .cell[data-period="0"][data-day="0"]').click();
     assert.equal(await app.locator('#viewer .title').textContent(),'担任A');
     assert.ok((await app.locator('.teacher-profile').textContent()).includes('数学Ⅲ'));
     assert.equal(await app.locator('.teacher-profile').getAttribute('open'),null);
+    const profileBelow=await app.locator('.teacher-profile').evaluate(node=>node.compareDocumentPosition(document.querySelector('#viewer .tableWrap'))&Node.DOCUMENT_POSITION_PRECEDING);
+    assert.ok(profileBelow,'profile should follow timetable');
     await app.locator('#viewer .cell[data-period="0"][data-day="0"]').click();
     assert.equal(await app.locator('#viewer .title').textContent(),'6-2');
 
@@ -65,6 +86,7 @@ try{
     assert.equal(await grid.locator('tr').nth(2).locator('td').nth(1).getAttribute('data-status'),'free');
     assert.equal(await grid.locator('tr').nth(1).locator('td').nth(4).getAttribute('data-status'),'busy');
     assert.equal(await grid.locator('tr').nth(0).locator('td').nth(5).getAttribute('data-status'),'rest');
+    await assertFrameWidth();
     await app.locator('input[data-teacher="teacher:休みE"]').check();
     assert.equal(await grid.locator('tr').nth(1).locator('td').nth(4).getAttribute('data-status'),'partial');
 

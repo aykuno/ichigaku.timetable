@@ -84,7 +84,7 @@
   const hub=document.createElement('section');hub.className='feature-hub';
   hub.innerHTML='<details id="free-tools"><summary>空き教員検索</summary><div class="feature-body"><div class="feature-row"><label>曜日 <select id="free-day">'+DAYS.map((x,i)=>'<option value="'+i+'">'+x+'曜</option>').join('')+'</select></label><label>時限 <select id="free-period">'+PERIODS.map((x,i)=>'<option value="'+i+'">'+x+'限</option>').join('')+'</select></label><label>教科 <select id="free-subject"><option value="">全教科</option>'+['英語','数学','国語','理科','社会','保健体育','芸術','家庭','情報','技術'].map(x=>'<option value="'+x+'">'+x+'科</option>').join('')+'</select></label><label>担当学年 <select id="free-grade"><option value="">全学年</option>'+['中1','中2','中3','高1','高2','高3'].map((x,i)=>'<option value="'+(i+1)+'">'+x+'</option>').join('')+'</select></label><button id="free-search" class="feature-btn primary" type="button">空きを検索</button></div><div id="free-results" aria-live="polite"></div><div class="feature-note">時間割上の空きを表示します。教科・担当学年は授業データから集計しています。</div></div></details>'+
     '<details id="common-tools"><summary>共通空き時間検索（2人以上）</summary><div class="feature-body"><div class="feature-row"><input id="common-query" type="search" placeholder="教員名・ひらがなで絞る" aria-label="共通空き検索の教員名"><button id="common-current" class="feature-btn" type="button">表示中の教員を追加</button><button id="common-homeroom" class="feature-btn" type="button">担任＋副担任を選ぶ</button><button id="common-comparison" class="feature-btn" type="button">2画面の教員を使う</button><button id="common-clear" class="feature-btn" type="button">選択をクリア</button></div><div id="common-selected" class="feature-list"></div><div id="common-options" class="common-options"></div><div id="common-message" class="feature-note" role="status"></div><div id="common-grid"></div></div></details>'+
-    '<details id="clock-tools"><summary>「今」表示の時刻設定</summary><div class="feature-body"><div class="feature-note">中学・高校共通の授業時刻を登録済みです。7限は木曜のみです。変更はこの端末に保存します。</div><div class="feature-row"><label>設定する時刻表 <select id="bell-mode"><option value="high">平日</option><option value="highSat">土曜</option></select></label></div><div id="bell-form"><div id="bell-grid" class="bell-grid"><span>限</span><span>開始</span><span>終了</span>'+PERIODS.map((x,i)=>'<label>'+x+'</label><input id="bell-start-'+i+'" type="time" aria-label="'+x+'限開始"><input id="bell-end-'+i+'" type="time" aria-label="'+x+'限終了">').join('')+'</div><div class="feature-row" style="margin-top:10px"><button id="bell-save" class="feature-btn primary" type="button">時刻を保存</button><button id="bell-reset" class="feature-btn" type="button">標準時刻に戻す</button></div></div><div id="bell-status" class="feature-note" role="status"></div></div></details>';
+    '<details id="clock-tools"><summary>「今」表示の時刻設定</summary><div class="feature-body"><div class="feature-note">中学・高校共通です。平日6限・木曜7限・土曜4限までの授業時刻を登録済みです。</div><div class="feature-row"><label>設定する時刻表 <select id="bell-mode"><option value="high">平日</option><option value="highSat">土曜</option></select></label></div><div id="bell-form"><div id="bell-grid" class="bell-grid"><span>限</span><span>開始</span><span>終了</span>'+PERIODS.map((x,i)=>'<label>'+x+'</label><input id="bell-start-'+i+'" type="time" aria-label="'+x+'限開始"><input id="bell-end-'+i+'" type="time" aria-label="'+x+'限終了">').join('')+'</div><div class="feature-row" style="margin-top:10px"><button id="bell-save" class="feature-btn primary" type="button">時刻を保存</button><button id="bell-reset" class="feature-btn" type="button">標準時刻に戻す</button></div></div><div id="bell-status" class="feature-note" role="status"></div></div></details>';
   document.querySelector('.layout').after(hub);
   const lessonTools=byId('lessonSearchBox');if(lessonTools)hub.prepend(lessonTools);
   const quick=document.createElement('section');quick.className='quick-access';quick.id='quick-access';
@@ -176,8 +176,14 @@
 
   function timeMinute(value){const m=String(value||'').match(/^([01]\d|2[0-3]):([0-5]\d)$/);return m?Number(m[1])*60+Number(m[2]):null;}
   function loadBellForm(){
+    const saturday=byId('bell-mode').value==='highSat';
     const bells=prefs.bells[byId('bell-mode').value]||DEFAULT_BELLS;
-    for(let p=0;p<7;p++){byId('bell-start-'+p).value=bells[p]?.[0]||'';byId('bell-end-'+p).value=bells[p]?.[1]||'';}
+    for(let p=0;p<7;p++){
+      const disabled=saturday&&p>=4;
+      byId('bell-start-'+p).disabled=disabled;byId('bell-end-'+p).disabled=disabled;
+      byId('bell-start-'+p).value=disabled?'':bells[p]?.[0]||'';
+      byId('bell-end-'+p).value=disabled?'':bells[p]?.[1]||'';
+    }
   }
   byId('bell-mode').addEventListener('change',loadBellForm);
   byId('bell-save').addEventListener('click',event=>{
@@ -198,7 +204,7 @@
     const jsDay=date.getUTCDay(),d=jsDay-1;
     const minute=date.getUTCHours()*60+date.getUTCMinutes();
     const bells=prefs.bells[clockLevel+(jsDay===6?'Sat':'')]||DEFAULT_BELLS;
-    const period=d>=0?bells.findIndex((x,p)=>x&&(p<6||jsDay===4)&&timeMinute(x[0])<=minute&&minute<timeMinute(x[1])):-1;
+    const period=d>=0?bells.findIndex((x,p)=>x&&(jsDay!==6||p<4)&&(p<6||jsDay===4)&&timeMinute(x[0])<=minute&&minute<timeMinute(x[1])):-1;
     return {date,jsDay,d,minute,bells,period};
   }
   function refreshNow(){
@@ -218,7 +224,7 @@
       const jsDay=(now.jsDay+offset)%7;if(!jsDay)continue;
       const d=jsDay-1,bells=prefs.bells[clockLevel+(jsDay===6?'Sat':'')]||DEFAULT_BELLS;
       for(let p=0;p<7;p++){
-        if((p===6&&jsDay!==4)||!bells[p]||(offset===0&&timeMinute(bells[p][0])<=now.minute)||availability(item,p,d).kind!=='busy')continue;
+        if((jsDay===6&&p>=4)||(p===6&&jsDay!==4)||!bells[p]||(offset===0&&timeMinute(bells[p][0])<=now.minute)||availability(item,p,d).kind!=='busy')continue;
         const cell=cellData(item,p,d);next=DAYS[d]+'曜'+PERIODS[p]+'限 '+[cell.top,cell.bottom].filter(Boolean).join(' / ');break;
       }
     }
@@ -257,6 +263,8 @@
     const now=document.createElement('div');now.className='now-line';
     now.innerHTML='<div id="now-text" aria-live="off"></div><div class="feature-row"><label class="clock-level-label">時刻表 <select id="clock-level"><option value="high">高校</option><option value="middle">中学</option></select></label><button id="clock-edit" type="button" class="feature-btn">時刻を設定</button></div>';
     const diff=document.createElement('div');diff.className='diff-info';diff.id='difference-info';diff.hidden=true;
+    const lessonLegend=viewerEl.querySelector('.viewerTop .legend');
+    if(lessonLegend)viewerEl.querySelector('.tableWrap').after(lessonLegend);
     viewerEl.querySelector('.viewerTop').after(actions,now,diff);
     if(item.kind==='teacher'){
       const p=profile(item),section=document.createElement('details');section.className='teacher-profile';
@@ -268,7 +276,7 @@
         (vice.length?'<div class="profile-line"><strong>副担任：</strong>'+links(vice)+'</div>':'')+
         '<div class="profile-line"><strong>所属・役職：</strong><span>'+esc(dutyTextsOf(item.n).join(' / ')||'登録なし')+'</span></div>';
       const duties=viewerEl.querySelector('.duties');if(duties)section.append(duties);
-      diff.after(section);
+      viewerEl.querySelector('.tableWrap').after(section);
     }
     viewerEl.querySelectorAll('.table tbody tr').forEach((row,p)=>row.querySelectorAll('td').forEach((td,d)=>{
       td.dataset.period=String(p);td.dataset.day=String(d);
