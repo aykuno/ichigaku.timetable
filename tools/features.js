@@ -736,7 +736,7 @@
       parseFloat(getComputedStyle(document.body).paddingTop)+parseFloat(getComputedStyle(document.body).paddingBottom));
     if(height!==lastHeight){lastHeight=height;post({type:'timetable-frame-height',height});}
   }
-  const schedule=()=>requestAnimationFrame(measure);
+  const schedule=()=>{measure();setTimeout(measure,0);};
   new ResizeObserver(schedule).observe(document.querySelector('.wrap')||document.body);
   new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['open','hidden','class']});
   window.addEventListener('resize',schedule);
@@ -786,6 +786,25 @@
     if(data.type==='timetable-request-tools')post({type:'timetable-tool-state',state:toolState()});
     if(data.type==='timetable-home')resetHome();
   });
+  document.addEventListener('click',event=>{
+    if(mode!=='tools'||!event.target.closest('#lessonSearchBtn'))return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const key=state.currentKey,item=ITEMS.find(x=>x.key===key);
+    renderLessonConditionResults();
+    let results=byId('shared-lesson-results');
+    if(!results){
+      results=document.createElement('section');results.id='shared-lesson-results';
+      byId('lessonSearchBox').append(results);
+      results.addEventListener('click',event=>{
+        const key=event.target.closest('.lessonResult')?.dataset.key;
+        if(key)openItem(key);
+      });
+    }
+    results.innerHTML=viewerEl.innerHTML;
+    state.currentKey=key;
+    if(item)renderViewer(item);else renderEmpty();
+    schedule();
+  },true);
   document.addEventListener('click',event=>{
     if(mode!=='tools'||homePending)return;
     const button=event.target.closest('[data-open],.lessonResult');

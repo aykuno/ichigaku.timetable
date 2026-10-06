@@ -23,20 +23,23 @@ self.addEventListener('fetch',event=>{
   const asset=ASSETS.find(value=>new URL(value).pathname===url.pathname);
   if(!documentRequest&&!asset)return;
   const key=documentRequest?ROOT.href:asset;
+  const cachePromise=caches.open(CACHE);
+  const network=(async()=>{
+    const response=await fetch(new Request(request,{cache:'no-cache'}));
+    if(!response.ok||response.type==='opaque'||new URL(response.url).origin!==ROOT.origin)throw new Error('Unavailable');
+    if(documentRequest&&!response.headers.get('content-type')?.includes('text/html'))throw new Error('Invalid page');
+    const cache=await cachePromise;
+    try{await cache.put(key,response.clone());}catch{}
+    return response;
+  })();
+  // Register background work while the fetch event is still being dispatched.
+  event.waitUntil(network.then(()=>{},()=>{}));
   event.respondWith((async()=>{
-    const cache=await caches.open(CACHE);
-    // Navigation gets a fresh page, but slow or failed connections use the cached page.
-    const network=fetch(new Request(request,{cache:'no-cache'})).then(async response=>{
-      if(!response.ok||response.type==='opaque')throw new Error('Unavailable');
-      if(documentRequest&&!response.headers.get('content-type')?.includes('text/html'))throw new Error('Invalid page');
-      await cache.put(key,response.clone());return response;
-    });
-    if(!documentRequest){try{return await network;}catch{return (await cache.match(key))||Response.error();}}
+    const cache=await cachePromise;
     const cached=await cache.match(key);
+    if(!documentRequest){try{return await network;}catch{return cached||Response.error();}}
     if(!cached)return network;
     const fallback=new Promise(resolve=>setTimeout(()=>resolve(cached),3500));
-    // Keep the cache update alive even when the cached response wins the race.
-    event.waitUntil(network.then(()=>{},()=>{}));
     return Promise.race([network.catch(()=>cached),fallback]);
   })());
 });

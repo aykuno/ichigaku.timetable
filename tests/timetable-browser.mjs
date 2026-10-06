@@ -110,7 +110,13 @@ try {
         });
         assert.equal(sandboxed,true);
         if(name==='Chromium'&&viewport.width===390){
+          await page.locator('#screen-2').scrollIntoViewIfNeeded();
+          await second.locator('body').evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
           console.log('UI_VISUAL_comparison:'+(await page.screenshot({fullPage:true})).toString('base64'));
+        }
+        for(const pane of [app,second]){
+          const overflow=await pane.locator('body').evaluate(()=>document.documentElement.scrollHeight-innerHeight);
+          assert.ok(overflow<=1,'comparison iframe should fit its full content: '+overflow);
         }
         // A shared lesson result opens the first timetable without changing the second.
         if(!await shared.locator('#lessonSearchBox').evaluate(node=>node.open))await shared.locator('#lessonSearchBox summary').click();
