@@ -71,7 +71,11 @@ try{
     assert.ok((await app.locator('.teacher-profile').textContent()).includes('数学Ⅲ'));
     assert.equal(await app.locator('.teacher-profile summary').count(),0);
     assert.equal(await app.locator('.teacher-profile .profile-line').first().isVisible(),true);
-    assert.equal(await app.locator('.teacher-profile h3').textContent(),'担当・所属');
+    assert.equal(await app.locator('.teacher-profile h3').textContent(),'担当');
+    assert.equal(await app.locator('.teacher-profile .profile-duties').count(),0);
+    assert.ok((await app.locator('.teacher-affiliations').textContent()).includes('確認部 部長'));
+    assert.ok(await app.locator('.teacher-affiliations').evaluate(node=>!!(node.compareDocumentPosition(document.querySelector('#viewer .restday'))&Node.DOCUMENT_POSITION_PRECEDING)));
+    assert.equal(await app.locator('.subject-chip').first().textContent(),'数学Ⅲ');
     const profileBelow=await app.locator('.teacher-profile').evaluate(node=>node.compareDocumentPosition(document.querySelector('#viewer .tableWrap'))&Node.DOCUMENT_POSITION_PRECEDING);
     assert.ok(profileBelow,'profile should follow timetable');
     await app.locator('#viewer .cell[data-period="0"][data-day="0"]').click();
@@ -84,7 +88,30 @@ try{
     assert.ok(freeNames.includes('担任A')&&freeNames.includes('副担任B'));
     assert.ok(!freeNames.some(x=>/授業C|指定休F|産休D/.test(x)));
     assert.ok((await app.locator('[data-free-group="rest"]').textContent()).includes('指定休F：指定休'));
-    assert.ok((await app.locator('[data-free-group="unknown"]').textContent()).includes('産休D'));
+    assert.equal(await app.locator('[data-free-group="unknown"]').count(),0);
+    assert.ok((await app.locator('[data-free-group="rest"]').textContent()).includes('産休D：産休'));
+    assert.ok((await app.locator('[data-free-group="rest"]').textContent()).includes('育休H：育休'));
+    assert.ok((await app.locator('[data-free-group="rest"]').textContent()).includes('山口：出勤時間外'));
+    assert.ok(freeNames.includes('出勤日I'));
+    // Seminar attendance is limited to Friday periods five and six.
+    await app.locator('#free-day').selectOption('4');
+    for(const period of ['0','3']){
+      await app.locator('#free-period').selectOption(period);await app.locator('#free-search').click();
+      assert.ok((await app.locator('[data-free-group="rest"]').textContent()).includes('山口：出勤時間外'));
+      assert.ok(!(await free.textContent()).includes('山口'));
+    }
+    for(const period of ['4','5']){
+      await app.locator('#free-period').selectOption(period);await app.locator('#free-search').click();
+      assert.ok((await app.locator('[data-free-group="busy"]').textContent()).includes('山口'));
+      assert.ok(!(await app.locator('[data-free-group="rest"]').textContent()).includes('山口'));
+    }
+    await app.locator('#free-day').selectOption('0');await app.locator('#free-period').selectOption('2');await app.locator('#free-search').click();
+    assert.ok((await app.locator('[data-free-group="rest"]').textContent()).includes('出勤日I：出勤日外'));
+    await app.locator('#free-day').selectOption('1');await app.locator('#free-search').click();
+    // A slash inside a course name must remain inside one subject chip.
+    await select('複合G');
+    assert.deepEqual(await app.locator('.subject-chip').allTextContents(),['地理探究/公共','日本史探究']);
+    await select('6-2');
     await app.locator('#free-subject').selectOption('英語');await app.locator('#free-grade').selectOption('6');await app.locator('#free-search').click();
     assert.deepEqual((await free.locator('button').allTextContents()).sort(),['休みE','副担任B'].sort());
 
@@ -110,6 +137,18 @@ try{
     assert.equal(await grid.locator('tr').nth(2).locator('td').nth(1).getAttribute('data-status'),'free');
     assert.equal(await grid.locator('tr').nth(1).locator('td').nth(4).getAttribute('data-status'),'busy');
     assert.equal(await grid.locator('tr').nth(0).locator('td').nth(5).getAttribute('data-status'),'rest');
+    const mondayFirst=grid.locator('tr').nth(0).locator('td').nth(0);
+    assert.equal(await mondayFirst.locator('[data-key="teacher:担任A"]').getAttribute('data-person-status'),'busy');
+    assert.ok((await mondayFirst.locator('[data-key="teacher:担任A"]').textContent()).includes('授業'));
+    assert.equal(await mondayFirst.locator('[data-key="teacher:副担任B"]').getAttribute('data-person-status'),'free');
+    assert.ok((await mondayFirst.locator('[data-key="teacher:副担任B"]').textContent()).includes('空き'));
+    const saturdayFirst=grid.locator('tr').nth(0).locator('td').nth(5);
+    assert.ok((await saturdayFirst.locator('[data-key="teacher:担任A"]').textContent()).includes('指定休'));
+    assert.ok((await saturdayFirst.locator('[data-key="teacher:副担任B"]').textContent()).includes('空き'));
+    assert.ok(!/予定|1\/2|指定休・休みあり/.test(await grid.textContent()));
+    await mondayFirst.click();
+    assert.ok((await app.locator('#common-slot-detail').textContent()).includes('数学Ⅲ / 6-2'));
+    await app.locator('[data-close-slot]').click();
     await assertFrameWidth();
     assert.equal(await grid.locator('tr').nth(4).locator('td').nth(5).getAttribute('data-status'),'no-lesson');
     assert.equal(await grid.locator('tr').nth(6).locator('td').nth(0).getAttribute('data-status'),'no-lesson');
@@ -120,6 +159,15 @@ try{
     await app.locator('[data-teacher="teacher:休みE"]').click();
     assert.equal(await grid.locator('tr').nth(1).locator('td').nth(4).getAttribute('data-status'),'partial');
 
+    await app.locator('#common-query').fill('産休D');
+    await app.locator('[data-teacher="teacher:産休D"]').click();
+    assert.ok((await grid.locator('tr').nth(2).locator('td').nth(1).locator('[data-key="teacher:産休D"]').textContent()).includes('産休'));
+    assert.equal(await grid.locator('tr').nth(2).locator('td').nth(1).getAttribute('data-status'),'rest');
+    await app.locator('#common-query').fill('山口');
+    await app.locator('[data-teacher="teacher:山口"]').click();
+    assert.ok((await grid.locator('tr').nth(0).locator('td').nth(0).locator('[data-key="teacher:山口"]').textContent()).includes('出勤時間外'));
+    assert.ok((await grid.locator('tr').nth(4).locator('td').nth(4).locator('[data-key="teacher:山口"]').textContent()).includes('授業'));
+    await app.locator('#common-clear').click();await app.locator('#common-homeroom').click();
     await page.locator('#compare').click();
     const other=page.frameLocator('#screen-2 iframe');
     await other.locator('#favorite-toggle').waitFor();

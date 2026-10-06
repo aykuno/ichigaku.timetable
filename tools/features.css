@@ -166,3 +166,21 @@
  .common-table th{font-size:11px}
  .common-help{font-size:12px}
 }
+
+/* timetable-refinements-v5 */
+.profile-subjects>span{display:flex;flex-wrap:wrap;gap:5px;min-width:0;flex:1}
+.subject-chip{display:inline-block;border:1px solid #d7dbe7;border-radius:7px;background:#f7f8fc;padding:2px 7px;line-height:1.6;white-space:normal;overflow-wrap:anywhere}
+.teacher-affiliations{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px;font-size:11px;line-height:1.6;margin:2px 0}
+.teacher-affiliations .duties{margin:0;font-size:inherit}
+.common-table td{height:auto;vertical-align:top;padding:5px 3px;cursor:pointer}
+.common-person{display:flex;justify-content:space-between;align-items:baseline;gap:3px;flex-wrap:wrap;border-bottom:1px solid #d3d8df;padding:4px 1px;line-height:1.45;font-size:11px;text-align:left}
+.common-person:last-child{border-bottom:0}
+.common-person-name{font-weight:700;overflow-wrap:anywhere}
+.person-state{font-size:10px;white-space:normal;overflow-wrap:anywhere}
+.state-free{color:#155d34}.state-busy{color:#942323}.state-rest,.state-unknown{color:#505b70}
+.common-slot-detail{padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.common-detail-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.common-detail-heading h3{font-size:14px;margin:0}
+.common-detail-person{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:12px}
+#free-results h3{font-size:14px}
+@media(max-width:640px){.common-person{font-size:10px;gap:1px;padding:5px 0}.person-state{font-size:9px}.common-table td{padding:3px 2px}}

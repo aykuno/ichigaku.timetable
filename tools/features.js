@@ -351,3 +351,165 @@
   post({type:'timetable-feature-ready'});
   setInterval(refreshNow,30000);
 })();
+
+/* timetable-refinements-v5 */
+;(() => {
+  'use strict';
+  const byId=id=>document.getElementById(id),esc=escapeHtml;
+  const teachers=ITEMS.filter(x=>x.kind==='teacher');
+  const schoolSlot=(p,d)=>(p<6||d===3)&&(d!==5||p<4);
+  const cellOf=(item,p,d)=>{
+    const raw=item?.d?.[p]?.[d];
+    return raw?{top:TEXTS[raw[0]]||'',bottom:TEXTS[raw[1]]||''}:null;
+  };
+  function slotState(item,p,d){
+    const cell=cellOf(item,p,d),status=STATUS_TEXTS[item.n]||'';
+    if(item.kind==='teacher'){
+      if(/産休|育休|休職/.test(status))return {kind:'rest',label:/産休/.test(status)?'産休':/育休/.test(status)?'育休':'休職'};
+      if(String(REST_DAYS[item.n]||'').includes(DAYS[d])||/[✕×]/.test(cell?.top||''))return {kind:'rest',label:'指定休'};
+      if(/休み[：:]/.test(status)&&(/[全毎]日/.test(status)||status.includes(DAYS[d])))return {kind:'rest',label:'休み'};
+      // LA seminar teachers attend only the two Friday seminar periods.
+      if(item.n==='山口'||(/出勤日/.test(status)&&/LA|ＬＡ|ゼミ/.test(status))){
+        if(d!==4||(p!==4&&p!==5))return {kind:'rest',label:'出勤時間外'};
+      }else if(/出勤日/.test(status)){
+        const days=(status.split(/出勤日[：:]?/)[1]||'').match(/[月火水木金土]/g);
+        if(days?.length){if(!days.includes(DAYS[d]))return {kind:'rest',label:'出勤日外'};}
+        else if(!cell?.top&&!cell?.bottom)return {kind:'rest',label:'出勤時間外'};
+      }
+    }
+    if(!cell)return {kind:'unknown',label:'時間割未登録'};
+    if(cell.top||cell.bottom){
+      const label=/会議|部会/.test(cell.top)?'会議':/^(?:ICR|ＩＣＲ)$/.test(cell.top)?'ICR':/^(?:LHR|ＬＨＲ)$/.test(cell.top)?'LHR':'授業';
+      return {kind:'busy',label,subject:cell.top,className:cell.bottom};
+    }
+    return {kind:'free',label:'空き'};
+  }
+  function subjectsOf(item){
+    const subjects=new Set();
+    for(let p=0;p<7;p++)for(let d=0;d<6;d++){
+      const cell=cellOf(item,p,d);
+      if(cell?.top&&!/^[✕×]$|ＩＣＲ|ICR|教科部会|主任会議|道徳|LHR/.test(cell.top))subjects.add(compactSubjectText(cell.top));
+    }
+    return [...subjects];
+  }
+  function classNamesOf(item){
+    const names=new Set();
+    for(let p=0;p<7;p++)for(let d=0;d<6;d++){
+      const text=String(cellOf(item,p,d)?.bottom||'').replace(/([1-6])-(\d+(?:理|文)?(?:\/\d+(?:理|文)?)+)/g,(_,g,rest)=>rest.split('/').map(c=>g+'-'+c).join(' '));
+      for(const token of text.match(/[1-6]-\d+(?:理|文)?/g)||[])names.add(token);
+    }
+    for(const c of ITEMS.filter(x=>x.kind==='class'))for(let p=0;p<7;p++)for(let d=0;d<6;d++){
+      const tokens=String(cellOf(c,p,d)?.bottom||'').split(/[\s/／・、,&＆＋+]+/).map(normalize);
+      if(tokens.includes(normalize(item.n)))names.add(c.n);
+    }
+    return [...names];
+  }
+  function groupState(items,p,d){
+    const states=items.map(item=>slotState(item,p,d));
+    if(states.some(x=>x.kind==='rest'))return 'rest';
+    if(states.some(x=>x.kind==='unknown'))return 'unknown';
+    const busy=states.filter(x=>x.kind==='busy').length;
+    return busy===0?'free':busy===states.length?'busy':'partial';
+  }
+  function describe(item,p,d){
+    const av=slotState(item,p,d);
+    return item.n+'：'+av.label+(av.subject?'（'+[av.subject,av.className].filter(Boolean).join(' / ')+'）':'');
+  }
+  function renderFree(){
+    const d=Number(byId('free-day').value),p=Number(byId('free-period').value);
+    if(!schoolSlot(p,d)){byId('free-results').innerHTML='<p class="feature-note">'+DAYS[d]+'曜'+PERIODS[p]+'限は授業時間外です。</p>';return;}
+    const subject=byId('free-subject').value,grade=byId('free-grade').value;
+    const found=teachers.filter(t=>(!subject||subjectsOf(t).some(s=>subjectMatchesForLesson(s,subject)))&&(!grade||classNamesOf(t).some(c=>c.startsWith(grade+'-'))));
+    const groups=[['free','空いている教員'],['rest','休み・出勤時間外'],['busy','授業・会議中'],['unknown','時間割未登録']];
+    byId('free-results').innerHTML='<p class="feature-note">'+DAYS[d]+'曜'+PERIODS[p]+'限</p>'+groups.map(([kind,label])=>{
+      const list=found.filter(t=>slotState(t,p,d).kind===kind);
+      if(kind==='unknown'&&!list.length)return '';
+      return '<section data-free-group="'+kind+'"><h3>'+label+'（'+list.length+'人）</h3><div class="feature-list">'+(list.length?list.map(t=>{
+        const av=slotState(t,p,d);
+        return '<button class="feature-btn status-'+kind+'" type="button" data-open="'+esc(t.key)+'">'+esc(t.n)+(kind==='rest'||kind==='unknown'?'：'+esc(av.label):'')+'</button>';
+      }).join(''):'<span class="feature-note">該当なし</span>')+'</div></section>';
+    }).join('');
+  }
+  byId('free-search').addEventListener('click',event=>{event.stopImmediatePropagation();renderFree();},true);
+  function refineProfile(item){
+    if(item?.kind!=='teacher')return;
+    const section=viewerEl.querySelector('.teacher-profile');
+    if(!section)return;
+    section.querySelector('h3').textContent='担当';
+    const subjectLine=section.querySelector('.profile-line');
+    subjectLine.querySelector('span').innerHTML=subjectsOf(item).map(s=>'<span class="subject-chip">'+esc(s)+'</span>').join('')||'登録なし';
+    subjectLine.classList.add('profile-subjects');
+    const roleLine=section.querySelector('.profile-duties')?.closest('.profile-line');
+    const duties=roleLine?.querySelector('.duties');
+    if(roleLine&&roleLine.textContent.replace('所属・役職：','').trim()!=='登録なし'){
+      const row=document.createElement('div');row.className='teacher-affiliations';
+      row.innerHTML='<strong>所属・役職：</strong>';
+      row.append(duties||roleLine.querySelector('.profile-duties'));
+      const titleBlock=viewerEl.querySelector('.titleBlock');
+      (titleBlock.querySelector('.restday')||titleBlock.querySelector('.title')).after(row);
+    }
+    roleLine?.remove();
+  }
+  const commonGrid=byId('common-grid');
+  let commonObserver;
+  function refineCommon(){
+    const selected=[...byId('common-selected').querySelectorAll('[data-remove]')].map(node=>ITEMS.find(x=>x.key===node.dataset.remove)).filter(Boolean);
+    const table=commonGrid.querySelector('.common-table');
+    if(!table||selected.length<2)return;
+    commonObserver?.disconnect();
+    commonGrid.querySelector('.status-legend').innerHTML='<span class="status-free">緑：全員空き</span><span class="status-partial">黄：空き・授業が混在</span><span class="status-busy">赤：全員授業など</span><span class="status-rest">灰：休みの教員あり</span>';
+    let freeCount=0;
+    table.querySelectorAll('tbody tr').forEach((row,p)=>row.querySelectorAll('td').forEach((td,d)=>{
+      if(!schoolSlot(p,d))return;
+      const kind=groupState(selected,p,d);
+      if(kind==='free')freeCount++;
+      td.dataset.status=kind;td.className='status-'+kind;
+      const detail=selected.map(t=>describe(t,p,d)).join('\n');
+      td.title=detail;td.tabIndex=0;td.setAttribute('role','button');td.setAttribute('aria-label',DAYS[d]+'曜'+PERIODS[p]+'限 '+detail);
+      td.innerHTML=selected.map(t=>{
+        const av=slotState(t,p,d);
+        return '<div class="common-person" data-key="'+esc(t.key)+'" data-person-status="'+av.kind+'"><span class="common-person-name">'+esc(t.n)+'</span><strong class="person-state state-'+av.kind+'">'+esc(av.label)+'</strong></div>';
+      }).join('');
+      td.onclick=()=>showDetail(p,d,selected);
+      td.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();showDetail(p,d,selected);}};
+    }));
+    byId('common-message').textContent=selected.map(t=>t.n).join('・')+'の共通空き：'+freeCount+'コマ。各コマに教員ごとの状態を表示しています。';
+    let detail=byId('common-slot-detail');if(detail)detail.remove();
+    detail=document.createElement('section');detail.id='common-slot-detail';detail.className='common-slot-detail';detail.hidden=true;commonGrid.append(detail);
+    commonObserver?.observe(commonGrid,{childList:true});
+  }
+  function showDetail(p,d,selected){
+    const panel=byId('common-slot-detail');if(!panel)return;
+    panel.hidden=false;
+    panel.innerHTML='<div class="common-detail-heading"><h3>'+DAYS[d]+'曜'+PERIODS[p]+'限</h3><button class="feature-btn" type="button" data-close-slot>閉じる</button></div>'+selected.map(t=>{
+      const av=slotState(t,p,d);
+      return '<div class="common-detail-person"><button class="feature-btn" type="button" data-open="'+esc(t.key)+'">'+esc(t.n)+'</button><strong class="state-'+av.kind+'">'+esc(av.label)+'</strong>'+(av.subject?'<span>'+esc([av.subject,av.className].filter(Boolean).join(' / '))+'</span>':'')+'</div>';
+    }).join('');
+    panel.querySelector('[data-close-slot]').onclick=()=>{panel.hidden=true;};
+    panel.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  commonObserver=new MutationObserver(refineCommon);commonObserver.observe(commonGrid,{childList:true});
+  let peer=null,enabled=false;
+  function refineDifference(){
+    const item=ITEMS.find(x=>x.key===state.currentKey);
+    if(!item||!peer||!enabled)return;
+    viewerEl.querySelectorAll('.table .cell').forEach(td=>{
+      const p=Number(td.dataset.period),d=Number(td.dataset.day);
+      const related=td.dataset.difference==='related'&&slotState(item,p,d).kind==='busy'&&slotState(peer,p,d).kind==='busy';
+      const kind=related?'related':groupState([item,peer],p,d);
+      td.classList.remove('diff-free','diff-partial','diff-busy','diff-related','diff-rest','diff-unknown');
+      td.classList.add('diff-'+kind);td.dataset.difference=kind;td.title=describe(item,p,d)+'\n'+describe(peer,p,d);
+    });
+  }
+  function refineLabels(){
+    viewerEl.querySelectorAll('.status-legend span').forEach(node=>{node.textContent=node.textContent.replace(/一部に予定/g,'空き・授業が混在').replace(/全員に予定/g,'全員授業など');});
+  }
+  const previous=renderViewer;
+  renderViewer=function(item){previous(item);refineProfile(item);refineLabels();refineDifference();};
+  window.addEventListener('message',event=>{
+    if(event.source!==parent||event.data?.type!=='timetable-comparison')return;
+    peer=ITEMS.find(x=>x.key===event.data.key)||null;enabled=!!event.data.enabled;refineLabels();refineDifference();
+  });
+  const item=ITEMS.find(x=>x.key===state.currentKey);
+  refineProfile(item);refineLabels();refineCommon();
+})();
