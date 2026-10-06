@@ -183,12 +183,17 @@ try{
     await page.locator('#differences').click();
     await app.locator('.cell[data-difference="related"]').waitFor();
     await other.locator('#q').fill('副担任B');await other.locator('#results .result').first().click();
-    await select('担任A');await app.locator('#common-comparison').click();
-    assert.equal(await app.locator('#common-selected button').count(),2);
+    await select('担任A');
+    const shared=page.frameLocator('#shared-tools iframe');
+    if(!await shared.locator('#common-tools').evaluate(node=>node.open))await shared.locator('#common-tools summary').click();
+    await shared.locator('#common-comparison').click();
+    assert.equal(await shared.locator('#common-selected button').count(),2);
+    assert.equal(await app.locator('#common-tools').isVisible(),false);
+    assert.equal(await other.locator('#common-tools').isVisible(),false);
     await app.locator('#favorite-toggle').click();
     await other.locator('#favorite-toggle').click();
     await app.locator('#favorites-list button').filter({hasText:'副担任B'}).waitFor();
-    await other.locator('#favorites-list button').filter({hasText:'担任A'}).waitFor();
+    await other.locator('#favorites-list button').filter({hasText:'担任A'}).waitFor({state:'attached'});
     await page.waitForFunction(()=>{const raw=localStorage.getItem('ichigaku.timetable.preferences.v1');return raw&&JSON.parse(raw).ciphertext;});
     const saved=await page.evaluate(()=>localStorage.getItem('ichigaku.timetable.preferences.v1'));
     assert.ok(!saved.includes('担任A')&&!saved.includes('副担任B')&&!saved.includes('6-2'));
@@ -250,7 +255,8 @@ try{
     const className=painting.text.find(point=>point.text==='6-2'&&point.y>firstRow.y&&point.y<firstRow.y+firstRow.h);
     assert.ok(subject.y<periodOne.y&&className.y>periodOne.y,'subject and class must surround the cell center');
     const firstText=painting.text[0],lastText=painting.text.filter(point=>point.text.startsWith('教員別 ver')).at(-1);
-    assert.ok(Math.abs((firstText.y+lastText.y)/2-3508/2)<45,'page content must be centered vertically');
+    assert.ok(firstText.y>=115&&firstText.y<=140,'PDF starts near the top of the page: '+firstText.y);
+    assert.ok((firstText.y+lastText.y)/2<3508/2-100,'page content shifts upward while cells remain centered');
     async function previewPdf(path,label){
       if(name!=='Chromium'||viewport.width!==390)return;
       const directory=await mkdtemp(join(tmpdir(),'timetable-pdf-'));

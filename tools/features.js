@@ -639,7 +639,7 @@
       const profileHeight=fields.length?44+fields.reduce((sum,row)=>sum+row.height+8,0)+10:0;
       const notesHeight=62;
       const contentHeight=headerHeight+18+tableHeight+(profileHeight?14+profileHeight:0)+notesHeight;
-      const scale=Math.min(1,(PAGE_H-144)/contentHeight),top=(PAGE_H-contentHeight*scale)/2;
+      const scale=Math.min(1,(PAGE_H-144)/contentHeight),top=60;
       ctx.save();ctx.translate(PAGE_W/2,top);ctx.scale(scale,scale);ctx.translate(-PAGE_W/2,0);
       let y=0;
       ctx.textAlign='left';font(22,'700');ctx.fillStyle='#1b2233';ctx.fillText('2026年度 時間割',MARGIN,y+14);
@@ -716,4 +716,81 @@
     event.preventDefault();event.stopImmediatePropagation();
     const item=current();if(item)void exportPdf(item,button);
   },true);
+})();
+
+/* timetable-ui-v7 */
+;(() => {
+  'use strict';
+  const byId=id=>document.getElementById(id);
+  let mode='single',lastHeight=0,homePending=false;
+  const label=document.createElement('label');
+  label.className='search-label';label.htmlFor='q';label.textContent='教員・クラスを検索';
+  qEl.before(label);
+  qEl.placeholder='名前・クラス・所属を入力（例：原田、6-2）';
+  qEl.setAttribute('aria-label','教員・クラスを検索');
+  const post=data=>parent.postMessage(data,'*');
+  function measure(){
+    if(mode==='single')return;
+    const wrap=document.querySelector('.wrap')||document.body;
+    const height=Math.ceil(wrap.getBoundingClientRect().height+
+      parseFloat(getComputedStyle(document.body).paddingTop)+parseFloat(getComputedStyle(document.body).paddingBottom));
+    if(height!==lastHeight){lastHeight=height;post({type:'timetable-frame-height',height});}
+  }
+  const schedule=()=>requestAnimationFrame(measure);
+  new ResizeObserver(schedule).observe(document.querySelector('.wrap')||document.body);
+  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['open','hidden','class']});
+  window.addEventListener('resize',schedule);
+  function toolState(){
+    return {open:[...document.querySelectorAll('.feature-hub details[open]')].map(x=>x.id),
+      common:[...document.querySelectorAll('#common-selected [data-remove]')].map(x=>x.dataset.remove),
+      free:['free-day','free-period','free-subject','free-grade'].map(id=>[id,byId(id)?.value])};
+  }
+  function restoreTools(value){
+    if(!value)return;
+    document.querySelectorAll('.feature-hub details').forEach(x=>x.open=(value.open||[]).includes(x.id));
+    for(const [id,v] of value.free||[])if(byId(id))byId(id).value=v;
+    byId('common-clear')?.click();
+    for(const key of value.common||[]){
+      const item=ITEMS.find(x=>x.key===key);if(!item)continue;
+      byId('common-query').value=item.n;
+      byId('common-query').dispatchEvent(new Event('input',{bubbles:true}));
+      [...document.querySelectorAll('#common-options [data-teacher]')].find(x=>x.dataset.teacher===key)?.click();
+    }
+    schedule();
+  }
+  function resetHome(){
+    homePending=true;state.query='';state.currentKey='';qEl.value='';
+    renderResults();renderEmpty();
+    const meta=viewerEl.querySelector('.meta');
+    if(meta)meta.textContent='上の検索欄に教員名やクラスを入力してください。';
+    document.querySelector('.sidebar').hidden=true;qEl.setAttribute('aria-expanded','false');
+    byId('common-clear')?.click();byId('common-query').value='';
+    byId('common-query').dispatchEvent(new Event('input',{bubbles:true}));
+    document.querySelectorAll('.feature-hub details').forEach(x=>x.open=false);
+    byId('free-results').replaceChildren();
+    post({type:'timetable-selection',key:''});
+    window.scrollTo(0,0);qEl.focus({preventScroll:true});homePending=false;schedule();
+  }
+  window.addEventListener('message',event=>{
+    if(event.source!==parent||!event.data)return;
+    const data=event.data;
+    if(data.type==='timetable-display-mode'){
+      const previous=mode;mode=data.mode||'single';document.body.dataset.mode=mode;
+      label.textContent=mode==='comparison-secondary'?'時間割②を検索':mode==='comparison-primary'?'時間割①を検索':'教員・クラスを検索';
+      qEl.setAttribute('aria-label',label.textContent);
+      if(previous==='single'&&mode==='comparison-primary')post({type:'timetable-tool-state',state:toolState()});
+      lastHeight=0;schedule();
+    }
+    if(data.type==='timetable-open-selection'&&ITEMS.some(x=>x.key===data.key)&&state.currentKey!==data.key)openItem(data.key);
+    if(data.type==='timetable-restore-tools')restoreTools(data.state);
+    if(data.type==='timetable-request-tools')post({type:'timetable-tool-state',state:toolState()});
+    if(data.type==='timetable-home')resetHome();
+  });
+  document.addEventListener('click',event=>{
+    if(mode!=='tools'||homePending)return;
+    const button=event.target.closest('[data-open],.lessonResult');
+    if(!button)return;
+    setTimeout(()=>{if(state.currentKey)post({type:'timetable-tool-open',key:state.currentKey});},0);
+  });
+  post({type:'timetable-ui-ready'});
 })();

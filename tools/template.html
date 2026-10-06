@@ -6,7 +6,14 @@
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
 <meta name="googlebot" content="noindex,nofollow,nosnippet">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-@@GATE_HASH@@' @@CONTENT_HASHES@@; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-@@GATE_HASH@@' @@CONTENT_HASHES@@; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#2d5bff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="時間割検索">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
 <title>時間割検索｜ログイン</title>
 <style>
 :root{color-scheme:light;--bg:#f6f7fb;--text:#1b2233;--muted:#5e6a85;--accent:#2d5bff}
@@ -46,6 +53,31 @@ iframe{display:block;width:100%;height:calc(100vh - var(--bar-height,56px));heig
 .pdf-card button,.pdf-card a{padding:11px;text-align:center;font-size:14px;border-radius:10px}
 .pdf-card a{background:var(--accent);color:#fff;text-decoration:none}
 :focus-visible{outline:3px solid #90a8ff;outline-offset:3px}
+
+#home{border:0;background:transparent;color:var(--text);padding:7px 0;text-align:left}
+#home:hover{color:var(--accent)}
+#shared-tools{padding:8px;background:var(--bg);border-bottom:1px solid #d7dbe7}
+#shared-tools iframe{height:136px}
+#app.comparing #frame-container{align-items:start;gap:8px;padding:8px;background:var(--bg)}
+#app.comparing iframe{height:900px}
+#app.comparing .screen-panel{border:1px solid #d7dbe7;border-radius:12px;overflow:hidden}
+#app.comparing .screen-heading{height:30px}
+#app-menu{position:relative}
+#app-menu summary{list-style:none;cursor:pointer;padding:6px 9px;font-size:20px;line-height:1;border:1px solid #b8c0d6;border-radius:9px}
+#app-menu summary::-webkit-details-marker{display:none}
+.app-menu-body{position:absolute;right:0;top:calc(100% + 6px);padding:8px;background:#fff;box-shadow:0 6px 20px #1b223322;border:1px solid #d7dbe7;border-radius:10px;z-index:3;width:190px}
+.app-menu-body button{width:100%;font-size:12px}
+.install-login{display:block;padding:8px 10px;margin-top:16px;font-size:13px}
+#offline-status{margin:0;padding:7px 12px;font-size:12px;background:#fff4cf;color:#805700}
+@media(max-width:760px){
+ .app-bar{padding:6px 8px;gap:5px;flex-wrap:nowrap}
+ .app-bar .app-title{font-size:12px}
+ .app-actions{gap:4px;flex-wrap:nowrap}
+ .app-actions button{font-size:11px;padding:7px 6px}
+ #app-menu summary{padding:5px 6px;font-size:18px}
+ #app.comparing #frame-container{padding:5px;gap:8px}
+ #shared-tools{padding:5px}
+}
 </style>
 </head>
 <body>
@@ -64,17 +96,22 @@ iframe{display:block;width:100%;height:calc(100vh - var(--bar-height,56px));heig
     </form>
     <p class="private-note">パスワードや時間割を外部に共有しないでください。<br>30分間操作がない場合は、自動でログアウトします。</p>
     <noscript><p>このサイトの利用にはJavaScriptを有効にしてください。</p></noscript>
+    <button id="install-login" class="secondary install-login" type="button">ホーム画面に追加</button>
+    <p id="offline-ready" class="private-note"></p>
   </section>
 </main>
+<p id="offline-status" role="status" hidden></p>
 <section id="app" hidden>
   <div class="app-bar">
-    <span class="app-title">時間割検索</span>
+    <button id="home" class="app-title" type="button" aria-label="ホームに戻る">時間割検索</button>
     <div class="app-actions">
       <button id="compare" class="secondary" type="button" aria-pressed="false" aria-controls="frame-container">2画面で比較</button>
       <button id="differences" class="secondary" type="button" aria-pressed="true" hidden>差分表示</button>
       <button id="logout" class="secondary" type="button">ログアウト</button>
+      <details id="app-menu"><summary aria-label="メニュー">⋯</summary><div class="app-menu-body"><button id="install-app" class="secondary" type="button">ホーム画面に追加</button></div></details>
     </div>
   </div>
+  <section id="shared-tools" aria-label="比較で共通の検索ツール" hidden></section>
   <div id="frame-container"></div>
 </section>
 <script id="encrypted-payload" type="application/json">@@PAYLOAD@@</script>

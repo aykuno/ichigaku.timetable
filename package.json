@@ -7,7 +7,8 @@
     "test:browser": "node tests/browser.mjs",
     "build": "node tools/build.mjs",
     "test:timetable": "node tests/timetable-browser.mjs",
-    "test:features": "node tests/features-browser.mjs"
+    "test:features": "node tests/features-browser.mjs",
+    "test:pwa": "node tests/pwa-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.55.1"

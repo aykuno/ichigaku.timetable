@@ -10,6 +10,9 @@
   const login = document.getElementById('login');
   const app = document.getElementById('app');
   const container = document.getElementById('frame-container');
+  const toolsPanel=document.getElementById('shared-tools');
+  let toolsFrame=null, toolsReady=false, pendingTools=null;
+  const allFrames=()=>toolsFrame?[...frames,toolsFrame]:frames;
   let payload, sessionHtml = '', frames = [], generation = 0, busy = false, timer = null;
   const selections = new Map();
   const SAVED_KEY = 'ichigaku.timetable.preferences.v1';
@@ -20,16 +23,43 @@
   new ResizeObserver(() => document.documentElement.style.setProperty('--bar-height', Math.max(56,bar.offsetHeight)+'px')).observe(bar);
   function send(frame, message) { frame.contentWindow?.postMessage(message, '*'); }
   function broadcastPreferences() {
-    for (const frame of frames) send(frame,{type:'timetable-preferences',preferences});
+    for (const frame of allFrames()) send(frame,{type:'timetable-preferences',preferences});
   }
   function broadcastComparison() {
     for (const frame of frames) {
       const other=frames.find(x=>x!==frame);
       send(frame,{type:'timetable-comparison',key:other?selections.get(other)||'':'',enabled:app.classList.contains('comparing')&&differenceOn});
     }
+    syncTools();
+  }
+  function updateDisplayModes(){
+    const comparing=app.classList.contains('comparing');
+    frames.forEach((frame,i)=>{
+      if(!comparing)frame.style.height='';
+      send(frame,{type:'timetable-display-mode',mode:comparing?(i?'comparison-secondary':'comparison-primary'):'single'});
+    });
+    if(toolsFrame)send(toolsFrame,{type:'timetable-display-mode',mode:'tools'});
+  }
+  function syncTools(){
+    if(!toolsFrame)return;
+    send(toolsFrame,{type:'timetable-comparison',key:selections.get(frames[1])||'',enabled:app.classList.contains('comparing')&&differenceOn});
+    const key=selections.get(frames[0]);
+    if(key)send(toolsFrame,{type:'timetable-open-selection',key});
+  }
+  function createTools(){
+    if(toolsFrame||!sessionHtml.includes('timetable-ui-v7'))return;
+    toolsFrame=document.createElement('iframe');
+    toolsFrame.title='比較で共通の検索ツール';
+    toolsFrame.setAttribute('sandbox','allow-scripts');
+    toolsFrame.setAttribute('referrerpolicy','no-referrer');
+    toolsFrame.srcdoc=sessionHtml;toolsPanel.append(toolsFrame);
+  }
+  function clearTools(){
+    toolsPanel.replaceChildren();toolsPanel.hidden=true;
+    toolsFrame=null;toolsReady=false;pendingTools=null;
   }
   function storageStatus(message) {
-    for (const frame of frames) send(frame,{type:'timetable-storage-status',message});
+    for (const frame of allFrames()) send(frame,{type:'timetable-storage-status',message});
   }
   function savePreferences(change) {
     if (!preferenceSession) return;
@@ -97,7 +127,7 @@
     const heading = document.createElement('h2');
     heading.id = panel.id + '-heading';
     heading.className = 'screen-heading';
-    heading.textContent = '画面 ' + number;
+    heading.textContent = '時間割 ' + (number===1?'①':'②');
     panel.setAttribute('aria-labelledby', heading.id);
     const frame = document.createElement('iframe');
     frame.title = 'クラス・教員時間割検索（画面 ' + number + '）';
@@ -111,6 +141,9 @@
   }
   function setComparing(value) {
     if (value && frames.length === 1) createScreen(2);
+    if(value)createTools();
+    if(!value&&toolsFrame)send(toolsFrame,{type:'timetable-request-tools'});
+    toolsPanel.hidden=!value||!toolsFrame;
     const second = document.getElementById('screen-2');
     if (second) second.hidden = !value;
     app.classList.toggle('comparing', value);
@@ -118,11 +151,13 @@
     compare.textContent = value ? '1画面に戻す' : '2画面で比較';
     differences.hidden = !value;
     broadcastComparison();
+    updateDisplayModes();
   }
   function lock(message = '') {
     generation++;
     clearTimeout(timer);
     container.replaceChildren();
+    clearTools();
     frames = [];
     selections.clear();
     sessionHtml = '';
@@ -199,6 +234,8 @@
       preferences=restored.preferences;
       sessionHtml = applyTimetablePresentation(html);
       container.replaceChildren();
+      clearTools();
+      selections.clear();
       frames = [];
       createScreen(1);
       setComparing(false);
@@ -228,17 +265,45 @@
     broadcastComparison();
     resetTimer();
   });
+  document.getElementById('home').addEventListener('click',()=>{
+    if(!sessionHtml)return;
+    closePdf();clearTools();container.replaceChildren();frames=[];selections.clear();
+    differenceOn=true;differences.setAttribute('aria-pressed','true');
+    const panel=createScreen(1);panel.querySelector('iframe').dataset.home='true';
+    setComparing(false);window.scrollTo(0,0);resetTimer();
+  });
   document.getElementById('logout').addEventListener('click', () => {
     lock('ログアウトしました。');
     input.focus();
   });
   window.addEventListener('message', event => {
-    const frame=frames.find(frame=>event.source===frame.contentWindow);
+    const frame=allFrames().find(frame=>event.source===frame.contentWindow);
     if(!frame||!event.data)return;
     const data=event.data;
     if(data.type==='timetable-activity')resetTimer();
     if(data.type==='timetable-feature-ready'){send(frame,{type:'timetable-preferences',preferences});broadcastComparison();}
-    if(data.type==='timetable-selection'&&typeof data.key==='string'&&data.key.length<300){if(data.key==='')selections.delete(frame);else if(/^(teacher|class):/.test(data.key))selections.set(frame,data.key);else return;broadcastComparison();}
+    if(frame!==toolsFrame&&data.type==='timetable-selection'&&typeof data.key==='string'&&data.key.length<300){if(data.key==='')selections.delete(frame);else if(/^(teacher|class):/.test(data.key))selections.set(frame,data.key);else return;broadcastComparison();}
+    if(data.type==='timetable-ui-ready'){
+      if(frame===toolsFrame){
+        toolsReady=true;send(frame,{type:'timetable-display-mode',mode:'tools'});
+        if(pendingTools)send(frame,{type:'timetable-restore-tools',state:pendingTools});
+        syncTools();
+      }else{
+        updateDisplayModes();
+        if(frame.dataset.home==='true'){delete frame.dataset.home;send(frame,{type:'timetable-home'});}
+      }
+    }
+    if(data.type==='timetable-frame-height'&&app.classList.contains('comparing')){
+      const h=data.height;
+      if(Number.isFinite(h)&&h>=0&&h<=12000)frame.style.height=Math.max(frame===toolsFrame?0:200,Math.ceil(h))+'px';
+    }
+    if(data.type==='timetable-tool-state'){
+      if(frame===toolsFrame&&!app.classList.contains('comparing'))send(frames[0],{type:'timetable-restore-tools',state:data.state});
+      if(frame===frames[0]&&app.classList.contains('comparing')){
+        pendingTools=data.state;if(toolsReady)send(toolsFrame,{type:'timetable-restore-tools',state:pendingTools});
+      }
+    }
+    if(frame===toolsFrame&&data.type==='timetable-tool-open'&&typeof data.key==='string'&&/^(teacher|class):/.test(data.key))send(frames[0],{type:'timetable-open-selection',key:data.key});
     if(data.type==='timetable-save')savePreferences(data.change);
     if(data.type==='timetable-pdf')showPdf(data);
   });

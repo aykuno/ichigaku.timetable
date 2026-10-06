@@ -58,6 +58,13 @@ try {
         await page.locator('#compare').click();
         assert.equal(await page.locator('#compare').getAttribute('aria-pressed'),'true');
         const second=page.frameLocator('#screen-2 iframe');
+        const shared=page.frameLocator('#shared-tools iframe');
+        await shared.locator('#common-tools').waitFor();
+        assert.equal(await app.locator('#lessonSearchBox').isVisible(),false);
+        assert.equal(await second.locator('#lessonSearchBox').isVisible(),false);
+        assert.equal(await second.locator('#free-tools').isVisible(),false);
+        assert.equal(await second.locator('#common-tools').isVisible(),false);
+        await page.waitForFunction(()=>parseInt(document.querySelector('#screen-1 iframe').style.height)>500);
         await second.locator('#q').waitFor();
         await second.locator('#viewer .title').waitFor();
         await second.locator('#q').fill('6-3');
@@ -72,7 +79,9 @@ try {
         async function verifyLayout(width) {
           await page.setViewportSize({width,height:viewport.height});
           await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>resolve())));
+          const toolsBox=await page.locator('#shared-tools').boundingBox();
           const firstBox=await page.locator('#screen-1').boundingBox();
+          assert.ok(firstBox.y>=toolsBox.y+toolsBox.height-1,'shared tools precede both timetables');
           const secondBox=await page.locator('#screen-2').boundingBox();
           if(width>760) {
             assert.ok(secondBox.x>=firstBox.x+firstBox.width);
@@ -100,6 +109,27 @@ try {
           try {void parent.document.body;return false;}catch{return true;}
         });
         assert.equal(sandboxed,true);
+        if(name==='Chromium'&&viewport.width===390){
+          console.log('UI_VISUAL_comparison:'+(await page.screenshot({fullPage:true})).toString('base64'));
+        }
+        // A shared lesson result opens the first timetable without changing the second.
+        if(!await shared.locator('#lessonSearchBox').evaluate(node=>node.open))await shared.locator('#lessonSearchBox summary').click();
+        await shared.locator('#lessonSearchBtn').click();
+        await shared.locator('.lessonResult').first().click();
+        await app.locator('#viewer .title').filter({hasText:'6-2'}).waitFor();
+        assert.equal(await second.locator('#viewer .title').textContent(),'6-3');
+        await page.locator('#home').click();
+        await app.locator('#viewer .title').filter({hasText:'時間割を選択してください'}).waitFor();
+        assert.equal(await page.locator('iframe').count(),1);
+        assert.equal(await page.locator('#compare').getAttribute('aria-pressed'),'false');
+        assert.equal(await app.locator('#q').inputValue(),'');
+        assert.equal(await app.locator('.sidebar').isVisible(),false);
+        assert.equal(await app.locator('.feature-hub details[open]').count(),0);
+        assert.equal(await app.locator('#common-selected button').count(),0);
+        assert.equal(await app.locator('.search-label').textContent(),'教員・クラスを検索');
+        if(name==='Chromium'&&viewport.width===390){
+          console.log('UI_VISUAL_home:'+(await page.screenshot()).toString('base64'));
+        }
         await page.locator('#logout').click();
         assert.equal(await page.locator('iframe').count(),0);
         assert.deepEqual(errors,[]);

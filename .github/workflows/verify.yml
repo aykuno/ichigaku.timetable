@@ -31,3 +31,6 @@ jobs:
         run: npm run test:timetable
       - name: Verify free slots, comparisons, saved favorites, current period and PDF
         run: npm run test:features
+
+      - name: Verify home-screen installation and encrypted offline timetable
+        run: npm run test:pwa

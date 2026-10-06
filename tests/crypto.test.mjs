@@ -33,7 +33,7 @@ test('committed timetable has encrypted content, correct CSP hashes and no plain
   assert.ok(!page.includes('const DATA =')); assert.ok(!page.includes(fixture.password));
   assert.ok(!page.includes('sessionStorage'));
   assert.ok(page.includes('localStorage.setItem(SAVED_KEY,JSON.stringify(sealed))'));
-  assert.match(page,/content="noindex,nofollow,noarchive,nosnippet"/); assert.match(page,/connect-src 'none'/);
+  assert.match(page,/content="noindex,nofollow,noarchive,nosnippet"/); assert.match(page,/connect-src 'self'/);assert.match(page,/worker-src 'self'/);assert.match(page,/manifest-src 'self'/);
   const envelope = JSON.parse(page.match(/id="encrypted-payload" type="application\/json">([\s\S]*?)<\/script>/)[1]);
   assert.equal(envelope.version,1);
   assert.equal(envelope.algorithm,'AES-256-GCM');

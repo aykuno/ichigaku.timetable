@@ -30,7 +30,8 @@ export async function renderPage(plaintext, payload) {
   const gate = await readFile(new URL('./gate.js', import.meta.url), 'utf8');
   const preferences = await readFile(new URL('./preferences.js',import.meta.url),'utf8');
   const pdf = await readFile(new URL('./pdf.js',import.meta.url),'utf8');
-  const script = '\n' + decryptHtml.toString() + '\n\n' + preferences + '\n' + pdf + '\n' + applyTimetablePresentation.toString() + '\n' + gate;
+  const pwa = await readFile(new URL('./pwa.js',import.meta.url),'utf8');
+  const script = '\n' + decryptHtml.toString() + '\n\n' + preferences + '\n' + pdf + '\n' + applyTimetablePresentation.toString() + '\n' + gate + '\n' + pwa;
   const digest = value => createHash('sha256').update(value, 'utf8').digest('base64');
   const contentHashes = [...applyTimetablePresentation(plaintext).matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map(match => "'sha256-" + digest(match[1]) + "'").join(' ');
