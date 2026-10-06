@@ -513,3 +513,207 @@
   const item=ITEMS.find(x=>x.key===state.currentKey);
   refineProfile(item);refineLabels();refineCommon();
 })();
+
+/* timetable-pdf-v6 */
+;(() => {
+  'use strict';
+  const PAGE_W=1240,PAGE_H=1754,RASTER_SCALE=2,MARGIN=60,BLOCK_W=1120;
+  const byId=id=>document.getElementById(id);
+  const current=()=>ITEMS.find(item=>item.key===state.currentKey);
+  let busy=false;
+  const style=(node,fallback)=>node?getComputedStyle(node):fallback;
+  const color=(node,fallback)=>node?getComputedStyle(node).color:fallback;
+  function wrap(ctx,text,width){
+    if(!String(text||'').trim())return [];
+    const result=[];
+    for(const paragraph of String(text).split('\n')){
+      let line='';
+      for(const char of paragraph){
+        if(line&&ctx.measureText(line+char).width>width){result.push(line);line='';}
+        line+=char;
+      }
+      result.push(line);
+    }
+    return result;
+  }
+  function snapshot(item){
+    const root=viewerEl,panel=root.querySelector('.teacher-profile');
+    const subjectNode=panel?.querySelector('.subject-chip');
+    const buttonNode=panel?.querySelector('.feature-btn');
+    const appearance=node=>{
+      const s=style(node,{backgroundColor:'#f7f8fc',borderColor:'#d7dbe7',color:'#1b2233'});
+      return {background:s.backgroundColor,border:s.borderColor,color:s.color};
+    };
+    const fields=panel?[...panel.querySelectorAll('.profile-line')].map(line=>{
+      const label=line.querySelector('strong')?.textContent||'';
+      const chips=[...line.querySelectorAll('.subject-chip,.feature-btn')];
+      return {label,boxed:true,values:chips.length?chips.map(node=>({text:node.textContent.trim(),...appearance(node)})):[{text:line.textContent.replace(label,'').trim(),...appearance(label.includes('科目')?subjectNode:buttonNode)}]};
+    }):[];
+    const dutyRoot=root.querySelector(item.kind==='teacher'?'.teacher-affiliations':'.titleBlock .duties');
+    const duties=dutyRoot?[...dutyRoot.querySelectorAll('.duty')].map(node=>({text:node.textContent.trim(),color:color(node,'#1b2233')})):[];
+    const rest=root.querySelector('.restday');
+    const table=root.querySelector('.table');
+    return {
+      rest:rest?{text:rest.textContent.trim(),color:color(rest,'#1b2233')}:null,
+      duties,fields,
+      text:color(root.querySelector('.toptext'),'#1b2233'),
+      bottom:color(root.querySelector('.bottomtext'),'#374151'),
+      border:style(table?.querySelector('td'),{borderColor:'#d7dbe7'}).borderColor,
+      header:style(table?.querySelector('th'),{backgroundColor:'#eef2fa'}).backgroundColor
+    };
+  }
+  function roundedRect(ctx,x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+  }
+  function richRow(ctx,font,field,width){
+    font(22,'700');const labelWidth=ctx.measureText(field.label).width+12;
+    let x=labelWidth,y=0,lineHeight=0;
+    const commands=[];
+    const values=field.boxed?field.values:field.values.flatMap((value,i)=>i?[{text:'/',color:'#5e6a85'},value]:[value]);
+    for(const value of values){
+      font(22,'400');
+      const padding=field.boxed?8:0,available=Math.max(30,width-labelWidth);
+      const lines=wrap(ctx,value.text,available-padding*2);
+      if(!lines.length)continue;
+      const w=Math.min(available,Math.max(...lines.map(line=>ctx.measureText(line).width))+padding*2);
+      const h=lines.length*29+(field.boxed?8:0);
+      if(x>labelWidth&&x+w>width){y+=lineHeight+6;x=labelWidth;lineHeight=0;}
+      commands.push({...value,x,y,w,h,padding,lines,boxed:field.boxed});
+      x+=w+7;lineHeight=Math.max(lineHeight,h);
+    }
+    const height=Math.max(34,y+lineHeight);
+    return {height,draw(x0,y0){
+      ctx.textAlign='left';font(22,'700');ctx.fillStyle='#1b2233';ctx.fillText(field.label,x0,y0+17);
+      for(const command of commands){
+        if(command.boxed){
+          roundedRect(ctx,x0+command.x,y0+command.y,command.w,command.h,7);
+          ctx.fillStyle=command.background==='rgba(0, 0, 0, 0)'?'#fff':command.background||'#fff';ctx.fill();
+          ctx.strokeStyle=command.border||'#d7dbe7';ctx.lineWidth=1;ctx.stroke();
+        }
+        font(22,'400');ctx.fillStyle=command.color||'#1b2233';
+        command.lines.forEach((line,i)=>ctx.fillText(line,x0+command.x+command.padding,y0+command.y+(command.boxed?4:0)+(i+.5)*29));
+      }
+    }};
+  }
+  async function encode(canvas,ctx){
+    if(typeof CompressionStream==='function'){
+      try{
+        let y=0;
+        const rows=new ReadableStream({pull(controller){
+          if(y===canvas.height){controller.close();return;}
+          const height=Math.min(64,canvas.height-y),rgba=ctx.getImageData(0,y,canvas.width,height).data;
+          const rgb=new Uint8Array(canvas.width*height*3);
+          for(let source=0,dest=0;source<rgba.length;source+=4){rgb[dest++]=rgba[source];rgb[dest++]=rgba[source+1];rgb[dest++]=rgba[source+2];}
+          y+=height;controller.enqueue(rgb);
+        }});
+        const bytes=await new Response(rows.pipeThrough(new CompressionStream('deflate'))).arrayBuffer();
+        return {bytes,encoding:'rgb-deflate'};
+      }catch{ /* Older browsers use a maximum-quality JPEG at the same resolution. */ }
+    }
+    const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Image encoding failed')),'image/jpeg',1));
+    return {bytes:await jpeg.arrayBuffer(),encoding:'jpeg'};
+  }
+  async function exportPdf(item,button){
+    if(busy)return;busy=true;
+    const status=byId('pdf-status');
+    button.disabled=true;status.textContent='PDFを作成しています…';
+    let canvas;
+    try{
+      if(document.fonts?.ready)await document.fonts.ready;
+      const data=snapshot(item);
+      canvas=document.createElement('canvas');canvas.width=PAGE_W*RASTER_SCALE;canvas.height=PAGE_H*RASTER_SCALE;
+      const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('Canvas unavailable');
+      ctx.scale(RASTER_SCALE,RASTER_SCALE);ctx.textBaseline='middle';
+      const family=getComputedStyle(document.body).fontFamily;
+      const font=(size,weight='400')=>{ctx.font=weight+' '+size+'px '+family;};
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,PAGE_W,PAGE_H);
+      const roles=data.duties.length?richRow(ctx,font,{label:item.kind==='teacher'?'所属・役職：':'',boxed:false,values:data.duties},BLOCK_W):null;
+      const fields=data.fields.map(field=>richRow(ctx,font,field,BLOCK_W-28));
+      const headerHeight=82+(data.rest?32:0)+(roles?roles.height+8:0);
+      const periodWidth=56,colWidth=(BLOCK_W-periodWidth)/6,rowHeight=128,tableHeader=48;
+      const tableHeight=tableHeader+PERIODS.length*rowHeight;
+      const profileHeight=fields.length?44+fields.reduce((sum,row)=>sum+row.height+8,0)+10:0;
+      const notesHeight=62;
+      const contentHeight=headerHeight+18+tableHeight+(profileHeight?14+profileHeight:0)+notesHeight;
+      const scale=Math.min(1,(PAGE_H-144)/contentHeight),top=(PAGE_H-contentHeight*scale)/2;
+      ctx.save();ctx.translate(PAGE_W/2,top);ctx.scale(scale,scale);ctx.translate(-PAGE_W/2,0);
+      let y=0;
+      ctx.textAlign='left';font(22,'700');ctx.fillStyle='#1b2233';ctx.fillText('2026年度 時間割',MARGIN,y+14);
+      font(40,'700');ctx.fillText(item.n,MARGIN,y+55);y+=82;
+      if(data.rest){font(22,'700');ctx.fillStyle=data.rest.color;ctx.fillText(data.rest.text,MARGIN,y+16);y+=32;}
+      if(roles){roles.draw(MARGIN,y);y+=roles.height+8;}
+      y+=18;
+      function box(x0,y0,w,h,fill){
+        ctx.fillStyle=fill;ctx.fillRect(x0,y0,w,h);ctx.strokeStyle=data.border;ctx.lineWidth=1.5;ctx.strokeRect(x0,y0,w,h);
+      }
+      box(MARGIN,y,periodWidth,tableHeader,data.header);
+      ctx.textAlign='center';font(24,'700');ctx.fillStyle=data.text;ctx.fillText('限',MARGIN+periodWidth/2,y+tableHeader/2);
+      DAYS.forEach((day,d)=>{
+        const x=MARGIN+periodWidth+d*colWidth;box(x,y,colWidth,tableHeader,data.header);
+        ctx.fillStyle=data.text;ctx.fillText(day,x+colWidth/2,y+tableHeader/2);
+      });
+      function cellText(topText,bottomText,cx,cy,linked){
+        let topSize=24,bottomSize=20,topLines,bottomLines,total,gap;
+        do{
+          font(topSize,'700');topLines=wrap(ctx,topText,colWidth-16);
+          font(bottomSize);bottomLines=wrap(ctx,bottomText,colWidth-16);
+          gap=topLines.length&&bottomLines.length?10:0;
+          total=topLines.length*topSize*1.35+bottomLines.length*bottomSize*1.35+gap;
+          if(total<=rowHeight-20||topSize<=12)break;
+          topSize--;bottomSize=Math.max(12,bottomSize-1);
+        }while(true);
+        let lineY=cy-total/2;ctx.textAlign='center';
+        font(topSize,'700');ctx.fillStyle=data.text;
+        topLines.forEach(line=>{ctx.fillText(line,cx,lineY+topSize*1.35/2);lineY+=topSize*1.35;});
+        lineY+=gap;font(bottomSize);ctx.fillStyle=data.bottom;
+        bottomLines.forEach(line=>{
+          const baseline=lineY+bottomSize*1.35/2;ctx.fillText(line,cx,baseline);
+          if(linked){const w=ctx.measureText(line).width;ctx.beginPath();ctx.strokeStyle='#8b94a5';ctx.lineWidth=.7;ctx.moveTo(cx-w/2,baseline+bottomSize*.55);ctx.lineTo(cx+w/2,baseline+bottomSize*.55);ctx.stroke();}
+          lineY+=bottomSize*1.35;
+        });
+      }
+      for(let p=0;p<PERIODS.length;p++){
+        const rowY=y+tableHeader+p*rowHeight;
+        box(MARGIN,rowY,periodWidth,rowHeight,data.header);
+        ctx.textAlign='center';font(26,'700');ctx.fillStyle=data.text;ctx.fillText(PERIODS[p],MARGIN+periodWidth/2,rowY+rowHeight/2);
+        for(let d=0;d<DAYS.length;d++){
+          const raw=item.d[p]?.[d]||[0,0,0],topText=TEXTS[raw[0]]||'',bottomText=TEXTS[raw[1]]||'';
+          const x=MARGIN+periodWidth+d*colWidth,fill=normalizeCellColor(topText,COLORS[raw[2]]||'#fff');
+          box(x,rowY,colWidth,rowHeight,fill);
+          const linked=!!viewerEl.querySelector('.cell[data-period="'+p+'"][data-day="'+d+'"][data-linked="true"]');
+          cellText(topText,bottomText,x+colWidth/2,rowY+rowHeight/2,linked);
+        }
+      }
+      y+=tableHeight;
+      if(fields.length){
+        y+=14;roundedRect(ctx,MARGIN,y,BLOCK_W,profileHeight,10);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d7dbe7';ctx.lineWidth=1.2;ctx.stroke();
+        ctx.textAlign='left';font(24,'700');ctx.fillStyle='#1b2233';ctx.fillText('担当',MARGIN+14,y+22);
+        let fieldY=y+44;for(const field of fields){field.draw(MARGIN+14,fieldY);fieldY+=field.height+8;}
+        y+=profileHeight;
+      }
+      ctx.textAlign='left';font(18);ctx.fillStyle='#5e6a85';
+      ctx.fillText('上段：科目等 / 下段：担当・クラス',MARGIN,y+22);
+      ctx.fillText('教員別 ver2.1 / クラス別 ver3.2',MARGIN,y+48);
+      ctx.restore();
+      font(17);ctx.fillStyle='#5e6a85';ctx.textAlign='center';ctx.fillText('1',PAGE_W/2,PAGE_H-36);
+      const image=await encode(canvas,ctx);
+      parent.postMessage({type:'timetable-pdf',...image,width:canvas.width,height:canvas.height,filename:'時間割_'+item.n.replace(/[\\/:*?"<>|]/g,'_')+'.pdf'},'*');
+      status.textContent='PDFの保存画面を開きました。';
+    }catch{status.textContent='PDFを作成できませんでした。もう一度お試しください。';}
+    finally{
+      if(canvas){canvas.width=1;canvas.height=1;}
+      if(button.isConnected)button.disabled=false;
+      busy=false;
+    }
+  }
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('#timetable-pdf');
+    if(!button)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const item=current();if(item)void exportPdf(item,button);
+  },true);
+})();

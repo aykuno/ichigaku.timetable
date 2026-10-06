@@ -50,10 +50,15 @@
   }
   function showPdf(data) {
     if(!(data.bytes instanceof ArrayBuffer)||data.bytes.byteLength<100||data.bytes.byteLength>5000000)return;
-    const jpeg=new Uint8Array(data.bytes);
-    if(jpeg[0]!==255||jpeg[1]!==216||jpeg[jpeg.length-2]!==255||jpeg[jpeg.length-1]!==217)return;
+    const raster=new Uint8Array(data.bytes),width=data.width??1240,height=data.height??1754,encoding=data.encoding||'jpeg';
+    if(!((width===1240&&height===1754)||(width===2480&&height===3508)))return;
+    if(encoding==='jpeg'){
+      if(raster[0]!==255||raster[1]!==216||raster[raster.length-2]!==255||raster[raster.length-1]!==217)return;
+    }else if(encoding==='rgb-deflate'){
+      if((raster[0]&15)!==8||((raster[0]<<8)|raster[1])%31!==0)return;
+    }else return;
     closePdf();
-    const blob=makeTimetablePdf(jpeg);
+    const blob=makeTimetablePdf(raster,{width,height,encoding});
     const filename=String(data.filename||'時間割.pdf').replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,180);
     activePdf={blob,filename,url:URL.createObjectURL(blob)};
     const dialog=document.createElement('div');dialog.id='pdf-dialog';dialog.className='pdf-dialog';

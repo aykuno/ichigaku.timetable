@@ -23,6 +23,8 @@ jobs:
         run: npm test
       - name: Install browser engines
         run: npx playwright install --with-deps chromium webkit
+      - name: Install PDF preview tools and Japanese fonts
+        run: sudo apt-get install -y --no-install-recommends poppler-utils fonts-noto-cjk
       - name: Verify password gate in browsers
         run: npm run test:browser
       - name: Verify timetable application in desktop and mobile browsers

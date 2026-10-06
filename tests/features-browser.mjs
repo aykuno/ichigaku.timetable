@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdtemp} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {inflateSync} from 'node:zlib';
 import {createServer} from 'node:http';
 import {chromium,webkit} from 'playwright';
 import {prepareContent,encryptHtml,renderPage} from '../tools/build-lib.mjs';
@@ -208,17 +212,74 @@ try{
     await app.locator('#favorites-list button').filter({hasText:'担任A'}).waitFor();
     await app.locator('#favorites-list button').filter({hasText:'副担任B'}).waitFor();
     await select('担任A');
-    await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor();
+    await app.locator('body').evaluate(()=>{
+      window.pdfPaint=[];window.pdfRects=[];
+      const originalFillText=CanvasRenderingContext2D.prototype.fillText;
+      const originalFillRect=CanvasRenderingContext2D.prototype.fillRect;
+      CanvasRenderingContext2D.prototype.fillText=function(text,x,y){
+        const m=this.getTransform();
+        window.pdfPaint.push({text:String(text),x:m.a*x+m.c*y+m.e,y:m.b*x+m.d*y+m.f,color:this.fillStyle,font:this.font});
+        return originalFillText.apply(this,arguments);
+      };
+      CanvasRenderingContext2D.prototype.fillRect=function(x,y,w,h){
+        const m=this.getTransform();
+        window.pdfRects.push({x:m.a*x+m.c*y+m.e,y:m.b*x+m.d*y+m.f,w:m.a*w,h:m.d*h,sourceW:w,sourceH:h});
+        return originalFillRect.apply(this,arguments);
+      };
+    });
+    const siteRole=await app.locator('.teacher-affiliations .green').evaluate(node=>({text:node.textContent.trim(),color:getComputedStyle(node).color}));
+    await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
     await page.locator('#pdf-share').click();
     assert.equal((await page.evaluate(()=>window.sharedPdf)).type,'application/pdf');
     const downloadPromise=page.waitForEvent('download');await page.locator('#pdf-download').click();
     const download=await downloadPromise,buffer=await readFile(await download.path()),text=buffer.toString('latin1');
     assert.equal(text.slice(0,8),'%PDF-1.4');assert.ok(text.includes('/Count 1'));
-    assert.ok(text.includes('/Width 1240 /Height 1754'));
+    assert.ok(text.includes('/Width 2480 /Height 3508'));
+    assert.ok(text.includes('/Filter /FlateDecode'));
+    const imageStart=text.indexOf('/Subtype /Image'),streamStart=text.indexOf('stream\n',imageStart)+7;
+    const imageLength=Number(text.slice(imageStart,streamStart).match(/\/Length (\d+)/)[1]);
+    assert.equal(inflateSync(buffer.subarray(streamStart,streamStart+imageLength)).length,2480*3508*3);
+    const painting=await app.locator('body').evaluate(()=>({text:window.pdfPaint,rects:window.pdfRects}));
+    const rolePaint=painting.text.find(point=>point.text===siteRole.text);
+    assert.equal(rolePaint.color,siteRole.color);
+    assert.ok(painting.text.some(point=>point.text==='指定休：土'));
+    const firstRow=painting.rects.find(rect=>rect.sourceW===56&&rect.sourceH===128);
+    const periodOne=painting.text.find(point=>point.text==='1'&&/26px/.test(point.font));
+    assert.ok(Math.abs(periodOne.y-(firstRow.y+firstRow.h/2))<.01,'period must be vertically centered');
+    const subject=painting.text.find(point=>point.text==='数学Ⅲ'&&point.y>firstRow.y&&point.y<firstRow.y+firstRow.h);
+    const className=painting.text.find(point=>point.text==='6-2'&&point.y>firstRow.y&&point.y<firstRow.y+firstRow.h);
+    assert.ok(subject.y<periodOne.y&&className.y>periodOne.y,'subject and class must surround the cell center');
+    const firstText=painting.text[0],lastText=painting.text.filter(point=>point.text.startsWith('教員別 ver')).at(-1);
+    assert.ok(Math.abs((firstText.y+lastText.y)/2-3508/2)<45,'page content must be centered vertically');
+    async function previewPdf(path,label){
+      if(name!=='Chromium'||viewport.width!==390)return;
+      const directory=await mkdtemp(join(tmpdir(),'timetable-pdf-'));
+      const prefix=join(directory,label);
+      execFileSync('pdftoppm',['-f','1','-singlefile','-scale-to','1400','-png',path,prefix]);
+      const png=await readFile(prefix+'.png');
+      console.log('PDF_VISUAL_'+label+':'+png.toString('base64'));
+    }
+    await previewPdf(await download.path(),'teacher');
     assert.ok(text.includes('/MediaBox [0 0 595.276 841.890]'));
     const xref=Number(text.match(/startxref\n(\d+)/)[1]);assert.equal(text.slice(xref,xref+4),'xref');
     const offsets=text.slice(xref).split('\n').slice(3,8);
     for(let n=1;n<=5;n++){const offset=Number(offsets[n-1].slice(0,10));assert.ok(text.slice(offset).startsWith(n+' 0 obj\n'));}
+    await page.locator('#pdf-close').click();
+    await app.locator('body').evaluate(()=>{
+      DUTIES['複合G']=[{t:'6-2担任',c:'red'},{t:'地歴公民科主任',c:'blue'},{t:'教務部',c:'green'},{t:'なずな祭推進委員会',c:'black'}];
+      REST_DAYS['複合G']='水';
+      window.pdfPaint=[];window.pdfRects=[];
+    });
+    await select('複合G');
+    const roles=await app.locator('.teacher-affiliations .duty').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent.trim(),color:getComputedStyle(node).color})));
+    await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
+    const compositeDownload=page.waitForEvent('download');await page.locator('#pdf-download').click();
+    const composite=await compositeDownload;
+    const compositePaint=await app.locator('body').evaluate(()=>window.pdfPaint);
+    for(const role of roles)assert.equal(compositePaint.find(point=>point.text===role.text)?.color,role.color,'role color differs from website');
+    assert.ok(compositePaint.some(point=>point.text==='地理探究/公共'),'composite course must remain a single chip');
+    assert.ok(compositePaint.some(point=>point.text==='指定休：水'));
+    await previewPdf(await composite.path(),'composite');
     await page.locator('#pdf-close').click();await page.locator('#compare').click();await other.locator('#favorite-toggle').waitFor();
     await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor();
     await page.clock.fastForward(30*60*1000+1000);
