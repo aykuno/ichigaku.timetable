@@ -18,6 +18,8 @@
   const SAVED_KEY = 'ichigaku.timetable.preferences.v1';
   let preferenceSession = null, preferences = preferenceCrypto.empty(), saveQueue = Promise.resolve(), differenceOn = true, activePdf = null;
   const IDLE_MS = 30 * 60 * 1000;
+  const pairButton=document.getElementById('comparison-pdf'),pairStatus=document.getElementById('comparison-pdf-status');
+  let pairPdf=null,pairTimer=null;
 
   const bar = document.querySelector('.app-bar');
   new ResizeObserver(() => document.documentElement.style.setProperty('--bar-height', Math.max(56,bar.offsetHeight)+'px')).observe(bar);
@@ -31,6 +33,7 @@
       send(frame,{type:'timetable-comparison',key:other?selections.get(other)||'':'',enabled:app.classList.contains('comparing')&&differenceOn});
     }
     syncTools();
+    updatePairControl();
   }
   function updateDisplayModes(){
     const comparing=app.classList.contains('comparing');
@@ -73,24 +76,54 @@
       catch { storageStatus('このブラウザでは端末に保存できません。表示中のみ保持します。'); }
     }).catch(()=>{if(attempt===generation)storageStatus('端末への保存に失敗しました。');});
   }
-  function closePdf() {
+  function pdfFilename(items,exportedAt){
+    const date=new Date(exportedAt+9*60*60*1000),pad=value=>String(value).padStart(2,'0');
+    const stamp=date.getUTCFullYear()+pad(date.getUTCMonth()+1)+pad(date.getUTCDate())+'_'+pad(date.getUTCHours())+pad(date.getUTCMinutes());
+    const prefix=items.every(item=>item.kind==='teacher')?'2026教職員時間割':items.every(item=>item.kind==='class')?'2026クラス時間割':'2026時間割';
+    return (prefix+'_'+items.map(item=>item.name).join('・')+'_'+stamp+'.pdf').replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,180);
+  }
+  function updatePairControl(){
+    const comparing=app.classList.contains('comparing');
+    document.getElementById('comparison-actions').hidden=!comparing;
+    pairButton.disabled=!!pairPdf||!comparing||!selections.get(frames[0])||!selections.get(frames[1]);
+    if(!pairPdf)pairStatus.textContent=pairButton.disabled&&comparing?'時間割①・②を選ぶと、まとめて保存できます。':'';
+  }
+  function cancelPair(message=''){
+    clearTimeout(pairTimer);pairPdf=null;updatePairControl();if(message)pairStatus.textContent=message;
+  }
+  function requestPairPage(number){
+    const job=pairPdf;if(!job)return;
+    pairStatus.textContent=number+' / 2ページを作成しています…';
+    send(frames[number-1],{type:'timetable-pdf-render',key:job.keys[number-1],requestId:job.id,pageNumber:number,exportedAt:job.exportedAt});
+  }
+  function validateRaster(data){
+    if(!(data.bytes instanceof ArrayBuffer)||data.bytes.byteLength<100||data.bytes.byteLength>5000000)return null;
+    const raster=new Uint8Array(data.bytes),width=data.width??1240,height=data.height??1754,encoding=data.encoding||'jpeg';
+    if(!((width===1240&&height===1754)||(width===2480&&height===3508)))return null;
+    if(encoding==='jpeg'){
+      if(raster[0]!==255||raster[1]!==216||raster[raster.length-2]!==255||raster[raster.length-1]!==217)return null;
+    }else if(encoding==='rgb-deflate'){
+      if((raster[0]&15)!==8||((raster[0]<<8)|raster[1])%31!==0)return null;
+    }else return null;
+    return {raster,width,height,encoding};
+  }
+  function closePdf(){
     document.getElementById('pdf-dialog')?.remove();
-    if(activePdf)URL.revokeObjectURL(activePdf.url);
+    if(activePdf){
+      URL.revokeObjectURL(activePdf.url);
+      if(activePdf.namedUrl)navigator.serviceWorker?.controller?.postMessage({type:'timetable-release-pdf',url:activePdf.namedUrl});
+    }
     activePdf=null;
   }
-  function showPdf(data) {
-    if(!(data.bytes instanceof ArrayBuffer)||data.bytes.byteLength<100||data.bytes.byteLength>5000000)return;
-    const raster=new Uint8Array(data.bytes),width=data.width??1240,height=data.height??1754,encoding=data.encoding||'jpeg';
-    if(!((width===1240&&height===1754)||(width===2480&&height===3508)))return;
-    if(encoding==='jpeg'){
-      if(raster[0]!==255||raster[1]!==216||raster[raster.length-2]!==255||raster[raster.length-1]!==217)return;
-    }else if(encoding==='rgb-deflate'){
-      if((raster[0]&15)!==8||((raster[0]<<8)|raster[1])%31!==0)return;
-    }else return;
+  function showPdf(data){
+    const page=validateRaster(data);if(!page)return;
+    const filename=data.item?pdfFilename([data.item],data.exportedAt||Date.now()):String(data.filename||'2026時間割.pdf').replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,180);
+    const blob=makeTimetablePdf(page.raster,{...page,title:filename.replace(/\.pdf$/,'')});
+    showPdfFile(blob,filename);
+  }
+  function showPdfFile(blob,filename) {
     closePdf();
-    const blob=makeTimetablePdf(raster,{width,height,encoding});
-    const filename=String(data.filename||'時間割.pdf').replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,180);
-    activePdf={blob,filename,url:URL.createObjectURL(blob)};
+    activePdf={blob,filename,url:URL.createObjectURL(new File([blob],filename,{type:'application/pdf'}))};
     const dialog=document.createElement('div');dialog.id='pdf-dialog';dialog.className='pdf-dialog';
     dialog.innerHTML='<section class="pdf-card" role="dialog" aria-modal="true" aria-labelledby="pdf-title"><h2 id="pdf-title">PDFの準備ができました</h2><p id="pdf-filename"></p><p class="pdf-guide">iPhoneでは「PDFを共有して保存」から「ファイルに保存」を選べます。</p><button id="pdf-share" type="button" class="secondary">PDFを共有して保存</button><a id="pdf-download">PDFをダウンロード</a><button id="pdf-open" type="button" class="secondary">PDFを開く</button><button id="pdf-close" type="button" class="secondary">閉じる</button><p id="pdf-message" role="status"></p></section>';
     document.body.append(dialog);
@@ -103,10 +136,29 @@
       try {await navigator.share({files:[file],title:filename});}
       catch(error){const message=document.getElementById('pdf-message');if(message)message.textContent=error.name==='AbortError'?'共有を取り消しました。':'共有できませんでした。「PDFを開く」かダウンロードをご利用ください。';}
     });
-    document.getElementById('pdf-open').addEventListener('click',()=>window.open(activePdf.url,'_blank','noopener'));
+    document.getElementById('pdf-open').addEventListener('click',()=>{if(activePdf.namedUrl)window.open(activePdf.namedUrl,'_blank','noopener');else document.getElementById('pdf-download').click();});
     document.getElementById('pdf-close').addEventListener('click',()=>{const frame=frames[0];closePdf();frame?.focus();});
     dialog.addEventListener('keydown',event=>{if(event.key==='Escape')closePdf();});
+    prepareNamedPdf(activePdf);
     (share.hidden?download:share).focus();
+  }
+  async function prepareNamedPdf(pdf){
+    const worker=navigator.serviceWorker?.controller;if(!worker)return;
+    const channel=new MessageChannel();
+    const reply=new Promise(resolve=>{
+      const timeout=setTimeout(()=>resolve(null),1500);
+      channel.port1.onmessage=event=>{clearTimeout(timeout);resolve(event.data?.url||null);};
+    });
+    try{
+      worker.postMessage({type:'timetable-hold-pdf',bytes:await pdf.blob.arrayBuffer(),filename:pdf.filename},[channel.port2]);
+      const url=await reply;
+      if(!url)return;
+      const parsed=new URL(url),root=new URL('./',location.href);
+      if(parsed.origin!==location.origin||!parsed.pathname.startsWith(root.pathname+'__pdf/'))return;
+      if(activePdf!==pdf){worker.postMessage({type:'timetable-release-pdf',url});return;}
+      pdf.namedUrl=url;const download=document.getElementById('pdf-download');
+      if(download)download.href=url+'?download=1';
+    }catch{}finally{channel.port1.close();}
   }
   function setBusy(value) {
     busy = value;
@@ -140,6 +192,7 @@
     return panel;
   }
   function setComparing(value) {
+    if(!value)cancelPair();
     if (value && frames.length === 1) createScreen(2);
     if(value)createTools();
     if(!value&&toolsFrame)send(toolsFrame,{type:'timetable-request-tools'});
@@ -155,6 +208,7 @@
   }
   function lock(message = '') {
     generation++;
+    cancelPair();
     clearTimeout(timer);
     container.replaceChildren();
     clearTools();
@@ -259,6 +313,12 @@
     setComparing(!app.classList.contains('comparing'));
     resetTimer();
   });
+  pairButton.addEventListener('click',()=>{
+    if(pairButton.disabled||pairPdf)return;
+    pairPdf={id:crypto.randomUUID(),keys:frames.slice(0,2).map(frame=>selections.get(frame)),pages:[],items:[],exportedAt:Date.now()};
+    updatePairControl();resetTimer();requestPairPage(1);
+    pairTimer=setTimeout(()=>cancelPair('PDFを作成できませんでした。もう一度お試しください。'),45000);
+  });
   differences.addEventListener('click',()=>{
     differenceOn=!differenceOn;
     differences.setAttribute('aria-pressed',String(differenceOn));
@@ -267,7 +327,7 @@
   });
   document.getElementById('home').addEventListener('click',()=>{
     if(!sessionHtml)return;
-    closePdf();clearTools();container.replaceChildren();frames=[];selections.clear();
+    cancelPair();closePdf();clearTools();container.replaceChildren();frames=[];selections.clear();
     differenceOn=true;differences.setAttribute('aria-pressed','true');
     const panel=createScreen(1);panel.querySelector('iframe').dataset.home='true';
     setComparing(false);window.scrollTo(0,0);resetTimer();
@@ -282,7 +342,7 @@
     const data=event.data;
     if(data.type==='timetable-activity')resetTimer();
     if(data.type==='timetable-feature-ready'){send(frame,{type:'timetable-preferences',preferences});broadcastComparison();}
-    if(frame!==toolsFrame&&data.type==='timetable-selection'&&typeof data.key==='string'&&data.key.length<300){if(data.key==='')selections.delete(frame);else if(/^(teacher|class):/.test(data.key))selections.set(frame,data.key);else return;broadcastComparison();}
+    if(frame!==toolsFrame&&data.type==='timetable-selection'&&typeof data.key==='string'&&data.key.length<300){if(data.key==='')selections.delete(frame);else if(/^(teacher|class):/.test(data.key))selections.set(frame,data.key);else return;if(pairPdf&&selections.get(frame)!==pairPdf.keys[frames.indexOf(frame)])cancelPair('時間割が変わりました。もう一度PDF保存を押してください。');broadcastComparison();}
     if(data.type==='timetable-ui-ready'){
       if(frame===toolsFrame){
         toolsReady=true;send(frame,{type:'timetable-display-mode',mode:'tools'});
@@ -305,7 +365,20 @@
     }
     if(frame===toolsFrame&&data.type==='timetable-tool-open'&&typeof data.key==='string'&&/^(teacher|class):/.test(data.key))send(frames[0],{type:'timetable-open-selection',key:data.key});
     if(data.type==='timetable-save')savePreferences(data.change);
-    if(data.type==='timetable-pdf')showPdf(data);
+    if(data.type==='timetable-pdf-error'&&pairPdf?.id===data.requestId)cancelPair('PDFを作成できませんでした。もう一度お試しください。');
+    if(data.type==='timetable-pdf-page'&&pairPdf?.id===data.requestId){
+      const number=pairPdf.pages.length+1,page=validateRaster(data);
+      if(frame!==frames[number-1]||data.pageNumber!==number||data.item?.key!==pairPdf.keys[number-1])return;
+      if(!page){cancelPair('PDFを作成できませんでした。もう一度お試しください。');return;}
+      pairPdf.pages.push(page);pairPdf.items.push(data.item);
+      if(number===1)requestPairPage(2);
+      else{
+        const job=pairPdf,filename=pdfFilename(job.items,job.exportedAt);
+        cancelPair();showPdfFile(makeTimetablePdf(null,{pages:job.pages,title:filename.replace(/\.pdf$/,'')}),filename);
+        pairStatus.textContent='2ページのPDFを作成しました。';
+      }
+    }
+    if(data.type==='timetable-pdf'){cancelPair();showPdf(data);}
   });
   for (const type of ['pointerdown', 'keydown']) {
     window.addEventListener(type, () => { if (frames.length) resetTimer(); }, {passive: true});

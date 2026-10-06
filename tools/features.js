@@ -617,10 +617,11 @@
     const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Image encoding failed')),'image/jpeg',1));
     return {bytes:await jpeg.arrayBuffer(),encoding:'jpeg'};
   }
-  async function exportPdf(item,button){
+  async function exportPdf(item,button,request=null){
     if(busy)return;busy=true;
     const status=byId('pdf-status');
     button.disabled=true;status.textContent='PDFを作成しています…';
+    const exportedAt=request?.exportedAt||Date.now();
     let canvas;
     try{
       if(document.fonts?.ready)await document.fonts.ready;
@@ -699,17 +700,25 @@
       ctx.fillText('上段：科目等 / 下段：担当・クラス',MARGIN,y+22);
       ctx.fillText('教員別 ver2.1 / クラス別 ver3.2',MARGIN,y+48);
       ctx.restore();
-      font(17);ctx.fillStyle='#5e6a85';ctx.textAlign='center';ctx.fillText('1',PAGE_W/2,PAGE_H-36);
+      font(17);ctx.fillStyle='#5e6a85';ctx.textAlign='center';ctx.fillText(String(request?.pageNumber||1),PAGE_W/2,PAGE_H-36);
       const image=await encode(canvas,ctx);
-      parent.postMessage({type:'timetable-pdf',...image,width:canvas.width,height:canvas.height,filename:'時間割_'+item.n.replace(/[\\/:*?"<>|]/g,'_')+'.pdf'},'*');
+      parent.postMessage({type:request?'timetable-pdf-page':'timetable-pdf',...image,width:canvas.width,height:canvas.height,item:{key:item.key,name:item.n,kind:item.kind},exportedAt,requestId:request?.requestId,pageNumber:request?.pageNumber},'*');
       status.textContent='PDFの保存画面を開きました。';
-    }catch{status.textContent='PDFを作成できませんでした。もう一度お試しください。';}
+    }catch{status.textContent='PDFを作成できませんでした。もう一度お試しください。';if(request)parent.postMessage({type:'timetable-pdf-error',requestId:request.requestId},'*');}
     finally{
       if(canvas){canvas.width=1;canvas.height=1;}
       if(button.isConnected)button.disabled=false;
       busy=false;
     }
   }
+  window.addEventListener('message',event=>{
+    if(event.source!==parent||event.data?.type!=='timetable-pdf-render')return;
+    const request=event.data,item=current(),button=byId('timetable-pdf');
+    if(!item||item.key!==request.key||!button||busy){
+      parent.postMessage({type:'timetable-pdf-error',requestId:request.requestId},'*');return;
+    }
+    void exportPdf(item,button,request);
+  });
   document.addEventListener('click',event=>{
     const button=event.target.closest('#timetable-pdf');
     if(!button)return;
@@ -758,7 +767,7 @@
     }
     schedule();
   }
-  function resetHome(){
+  function resetHome(focus=true){
     homePending=true;state.query='';state.currentKey='';qEl.value='';
     renderResults();renderEmpty();
     const meta=viewerEl.querySelector('.meta');
@@ -769,7 +778,7 @@
     document.querySelectorAll('.feature-hub details').forEach(x=>x.open=false);
     byId('free-results').replaceChildren();
     post({type:'timetable-selection',key:''});
-    window.scrollTo(0,0);qEl.focus({preventScroll:true});homePending=false;schedule();
+    window.scrollTo(0,0);if(focus)qEl.focus({preventScroll:true});homePending=false;schedule();
   }
   window.addEventListener('message',event=>{
     if(event.source!==parent||!event.data)return;
@@ -811,5 +820,6 @@
     if(!button)return;
     setTimeout(()=>{if(state.currentKey)post({type:'timetable-tool-open',key:state.currentKey});},0);
   });
+  resetHome(false);
   post({type:'timetable-ui-ready'});
 })();

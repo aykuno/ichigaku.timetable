@@ -30,7 +30,9 @@ try {
         await page.locator('#unlock').click();
         const app=page.frameLocator('#screen-1 iframe');
         await app.locator('#q').waitFor();
-        await app.locator('#viewer .title').waitFor();
+        await app.locator('#viewer .title').filter({hasText:'時間割を選択してください'}).waitFor();
+        assert.equal(await app.locator('#viewer .table').count(),0);
+        assert.equal(await app.locator('#q').inputValue(),'');
         await app.locator('#q').fill('6-2');
         assert.deepEqual(await app.locator('#results .result .n').allTextContents(),['6-2','担任A','副担任B']);
         await app.locator('#results .result').first().click();
@@ -66,7 +68,7 @@ try {
         assert.equal(await second.locator('#common-tools').isVisible(),false);
         await page.waitForFunction(()=>parseInt(document.querySelector('#screen-1 iframe').style.height)>500);
         await second.locator('#q').waitFor();
-        await second.locator('#viewer .title').waitFor();
+        await second.locator('#viewer .title').filter({hasText:'時間割を選択してください'}).waitFor();
         await second.locator('#q').fill('6-3');
         await second.locator('#results .result').first().click();
         await second.locator('#viewer .title').filter({hasText:'6-3'}).waitFor();

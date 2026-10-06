@@ -23,7 +23,7 @@ try{
   for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     const browser=await engine.launch();
     try{
-      const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[];
+      const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true}),page=await context.newPage(),errors=[];
       page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
       await page.goto(url+'?v=online');
       assert.equal(await page.locator('link[rel="manifest"]').getAttribute('href'),'./manifest.webmanifest');
@@ -61,6 +61,22 @@ try{
       const app=page.frameLocator('#screen-1 iframe');
       await app.locator('#q').fill('6-2');await app.locator('#results .result').first().click();
       await app.locator('#viewer .title').filter({hasText:'6-2'}).waitFor();
+      await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor();
+      await page.waitForFunction(()=>document.getElementById('pdf-download').href.includes('/__pdf/'));
+      const pdfUrl=await page.locator('#pdf-download').getAttribute('href');
+      const expectedFilename=await page.locator('#pdf-filename').textContent();
+      const response=await page.evaluate(async url=>{
+        const r=await fetch(url);
+        return {status:r.status,disposition:r.headers.get('content-disposition'),cache:r.headers.get('cache-control'),head:(await r.text()).slice(0,8)};
+      },pdfUrl);
+      assert.equal(response.status,200);assert.equal(response.head,'%PDF-1.4');assert.equal(response.cache,'no-store');
+      assert.ok(response.disposition.includes("filename*=UTF-8''"+encodeURIComponent(expectedFilename)));
+      const downloadEvent=page.waitForEvent('download');await page.locator('#pdf-download').click();
+      assert.equal((await downloadEvent).suggestedFilename(),expectedFilename);
+      const cachePaths=await page.evaluate(async()=>{const names=await caches.keys();return(await Promise.all(names.map(async name=>(await(await caches.open(name)).keys()).map(x=>x.url)))).flat();});
+      assert.ok(!cachePaths.some(path=>path.includes('/__pdf/')));
+      await page.locator('#pdf-close').click();
+      await page.waitForFunction(async url=>(await fetch(url)).status===410,pdfUrl);
       await app.locator('#favorite-toggle').click();
       await page.waitForFunction(()=>!!localStorage.getItem('ichigaku.timetable.preferences.v1'));
       // Playwright WebKit offline emulation rejects worker-served navigation

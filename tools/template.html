@@ -78,6 +78,10 @@ iframe{display:block;width:100%;height:calc(100vh - var(--bar-height,56px));heig
  #app.comparing #frame-container{padding:5px;gap:8px}
  #shared-tools{padding:5px}
 }
+#comparison-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:7px 10px;background:var(--bg)}
+#comparison-pdf{padding:9px 12px;font-size:13px;color:#234bc5;border-color:#5477ef;background:#f1f5ff;font-weight:700}
+#comparison-pdf:disabled{cursor:default;opacity:.5}
+#comparison-pdf-status{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -112,6 +116,7 @@ iframe{display:block;width:100%;height:calc(100vh - var(--bar-height,56px));heig
     </div>
   </div>
   <section id="shared-tools" aria-label="比較で共通の検索ツール" hidden></section>
+  <div id="comparison-actions" hidden><button id="comparison-pdf" class="secondary" type="button" disabled>2つの時間割をPDF保存</button><span id="comparison-pdf-status" role="status"></span></div>
   <div id="frame-container"></div>
 </section>
 <script id="encrypted-payload" type="application/json">@@PAYLOAD@@</script>
