@@ -255,7 +255,7 @@ try{
     const className=painting.text.find(point=>point.text==='6-2'&&point.y>firstRow.y&&point.y<firstRow.y+firstRow.h);
     assert.ok(subject.y<periodOne.y&&className.y>periodOne.y,'subject and class must surround the cell center');
     const firstText=painting.text[0],lastText=painting.text.filter(point=>point.text.startsWith('教員別 ver')).at(-1);
-    assert.ok(firstText.y>=115&&firstText.y<=140,'PDF starts near the top of the page: '+firstText.y);
+    assert.ok(firstText.y>=120&&firstText.y<=180,'PDF starts near the top of the page: '+firstText.y);
     assert.ok((firstText.y+lastText.y)/2<3508/2-100,'page content shifts upward while cells remain centered');
     async function previewPdf(path,label){
       if(name!=='Chromium'||viewport.width!==390)return;

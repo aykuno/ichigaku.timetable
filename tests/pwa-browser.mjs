@@ -35,7 +35,7 @@ try{
         },icon.src);
         assert.deepEqual(dimensions,icon.sizes.split('x').map(Number));
       }
-      await page.evaluate(async()=>{await navigator.serviceWorker.ready;});
+      await page.evaluate(async()=>{await Promise.race([navigator.serviceWorker.ready,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Service worker did not become ready')),12000))]);});
       await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
       const cached=await page.evaluate(async()=>{
         const name=(await caches.keys()).find(x=>x.startsWith('ichigaku-timetable-'));
