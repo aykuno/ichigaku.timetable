@@ -216,6 +216,7 @@ try{
     await login();
     await app.locator('#favorites-list button').filter({hasText:'担任A'}).waitFor();
     await app.locator('#favorites-list button').filter({hasText:'副担任B'}).waitFor();
+    await page.clock.setSystemTime(new Date('2026-10-06T05:38:00Z'));
     await select('担任A');
     await app.locator('body').evaluate(()=>{
       window.pdfPaint=[];window.pdfRects=[];
@@ -236,9 +237,9 @@ try{
     await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
     await page.locator('#pdf-share').click();
     assert.equal((await page.evaluate(()=>window.sharedPdf)).type,'application/pdf');
-    assert.equal((await page.evaluate(()=>window.sharedPdf)).name,'2026教職員時間割_担任A_20261005_0840.pdf');
+    assert.equal((await page.evaluate(()=>window.sharedPdf)).name,'2026教職員時間割_担任A_20261006_1438.pdf');
     const downloadPromise=page.waitForEvent('download');await page.locator('#pdf-download').click();
-    const download=await downloadPromise;assert.equal(download.suggestedFilename(),'2026教職員時間割_担任A_20261005_0840.pdf');
+    const download=await downloadPromise;assert.equal(download.suggestedFilename(),'2026教職員時間割_担任A_20261006_1438.pdf');
     const buffer=await readFile(await download.path()),text=buffer.toString('latin1');
     assert.equal(text.slice(0,8),'%PDF-1.4');assert.ok(text.includes('/Count 1'));
     assert.ok(text.includes('/Width 2480 /Height 3508'));
@@ -303,18 +304,18 @@ try{
     await page.waitForFunction(()=>!document.getElementById('comparison-pdf').disabled);
     await other.locator('body').evaluate(()=>{window.pairPaint=[];const old=CanvasRenderingContext2D.prototype.fillText;CanvasRenderingContext2D.prototype.fillText=function(text){window.pairPaint.push(String(text));return old.apply(this,arguments);};});
     await page.locator('#comparison-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
-    assert.equal(await page.locator('#pdf-filename').textContent(),'2026教職員時間割_複合G・副担任B_20261005_0840.pdf');
+    assert.equal(await page.locator('#pdf-filename').textContent(),'2026教職員時間割_複合G・副担任B_20261006_1438.pdf');
     await page.locator('#pdf-share').click();
-    assert.equal((await page.evaluate(()=>window.sharedPdf)).name,'2026教職員時間割_複合G・副担任B_20261005_0840.pdf');
+    assert.equal((await page.evaluate(()=>window.sharedPdf)).name,'2026教職員時間割_複合G・副担任B_20261006_1438.pdf');
     const pairDownloadPromise=page.waitForEvent('download');await page.locator('#pdf-download').click();
     const pairDownload=await pairDownloadPromise,pairPath=await pairDownload.path();
-    assert.equal(pairDownload.suggestedFilename(),'2026教職員時間割_複合G・副担任B_20261005_0840.pdf');
+    assert.equal(pairDownload.suggestedFilename(),'2026教職員時間割_複合G・副担任B_20261006_1438.pdf');
     const pairBytes=await readFile(pairPath),pairText=pairBytes.toString('latin1');
     assert.ok(pairText.includes('/Count 2'));
     const secondPainting=await other.locator('body').evaluate(()=>window.pairPaint);assert.ok(secondPainting.includes('副担任B'));assert.equal(secondPainting.at(-1),'2');
     assert.equal((pairText.match(/\/Subtype \/Image/g)||[]).length,2);
     const info=execFileSync('pdfinfo',[pairPath],{encoding:'utf8'});
-    assert.match(info,/Pages:\s+2/);assert.ok(info.includes('2026教職員時間割_複合G・副担任B_20261005_0840'));
+    assert.match(info,/Pages:\s+2/);assert.ok(info.includes('2026教職員時間割_複合G・副担任B_20261006_1438'));
     if(name==='Chromium'&&viewport.width===390){
       const directory=await mkdtemp(join(tmpdir(),'timetable-pair-'));
       for(const n of [1,2]){
