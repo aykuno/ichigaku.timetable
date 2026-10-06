@@ -56,6 +56,50 @@ try{
     }
     await assertFrameWidth();
     assert.ok((await app.locator('#now-text').textContent()).includes('現在：月曜1限'));
+    // Current and next lessons are separate rows; teacher-name separators do not collide with the subject.
+    await app.locator('body').evaluate(()=>{
+      const item=ITEMS.find(item=>item.key==='class:6-2');
+      window.originalClockGrid=item.d.map(row=>row.map(cell=>[...cell]));
+      const add=text=>{TEXTS.push(text);return TEXTS.length-1;};
+      item.d[5][1]=[add('英コミュⅢ'),add('富永/中野靖'),0];
+      item.d[0][2]=[add('芸術'),add('宮田/宇佐見'),0];
+      const ghost=add('授業なし検証');
+      for(const d of [0,1,2,4,5])item.d[6][d]=[ghost,0,0];
+    });
+    await page.clock.setSystemTime(new Date('2026-10-06T05:30:00Z'));await select('6-2');
+    assert.equal(await app.locator('#now-text .now-entry').count(),2);
+    assert.ok((await app.locator('.now-current .now-heading').textContent()).includes('現在：火曜6限 英コミュⅢ'));
+    assert.equal(await app.locator('.now-current .now-detail').textContent(),'担当：富永・中野靖');
+    assert.ok((await app.locator('.now-next .now-heading').textContent()).includes('次の授業：水曜1限 芸術'));
+    assert.equal(await app.locator('.now-next .now-detail').textContent(),'担当：宮田・宇佐見');
+    assert.ok(!(await app.locator('#now-text').textContent()).includes(' ／ '));
+    for(const d of [0,1,2,4,5]){
+      const cell=app.locator('.cell[data-period="6"][data-day="'+d+'"]');
+      assert.equal(await cell.getAttribute('data-school-no-lesson'),'true');
+      assert.equal((await cell.textContent()).trim(),'—');
+      assert.ok((await cell.getAttribute('aria-label')).includes('授業なし'));
+      assert.equal(await cell.locator('.cell-link').count(),0);
+    }
+    if(name==='Chromium'&&viewport.width===390)console.log('NOW_VISUAL:'+(await app.locator('.now-line').screenshot()).toString('base64'));
+    await app.locator('body').evaluate(()=>{
+      window.schoolPdfText=[];window.originalSchoolFill=CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText=function(text){window.schoolPdfText.push(String(text));return window.originalSchoolFill.apply(this,arguments);};
+    });
+    await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
+    assert.equal(await page.locator('#pdf-filename').textContent(),'2026クラス時間割_6-2_20261006_1430.pdf');
+    const classPaint=await app.locator('body').evaluate(()=>window.schoolPdfText);
+    assert.ok(!classPaint.includes('授業なし検証'));
+    assert.equal(classPaint.filter(text=>text==='—').length,7);
+    await page.locator('#pdf-close').click();
+    await app.locator('body').evaluate(()=>{CanvasRenderingContext2D.prototype.fillText=window.originalSchoolFill;});
+    for(const date of ['2026-10-05','2026-10-06','2026-10-07','2026-10-09']){
+      await page.clock.setSystemTime(new Date(date+'T06:20:00Z'));await select('6-2');
+      assert.ok((await app.locator('.now-current').textContent()).includes('現在：授業時間外'));
+      assert.equal(await app.locator('.cell.now-cell').count(),0);
+      assert.ok(!/(?:月|火|水|金|土)曜7限/.test(await app.locator('.now-next').textContent()));
+    }
+    await app.locator('body').evaluate(()=>{ITEMS.find(item=>item.key==='class:6-2').d=window.originalClockGrid;});
+
     // Thursday has a seventh period; the same time on Friday is outside lessons.
     await page.clock.setSystemTime(new Date('2026-10-08T06:20:00Z'));await select('6-2');
     assert.ok((await app.locator('#now-text').textContent()).includes('現在：木曜7限'));

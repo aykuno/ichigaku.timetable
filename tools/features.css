@@ -205,3 +205,15 @@ body[data-mode="tools"] .feature-hub summary{font-size:13px}
  body[data-mode="tools"] .feature-hub{grid-template-columns:minmax(0,1fr);gap:5px}
  body[data-mode="tools"] .feature-hub>details{padding:9px 12px}
 }
+
+/* timetable-now-v9 */
+#now-text{display:grid;gap:5px}
+.now-entry{min-width:0}
+.now-heading{display:flex;flex-wrap:wrap;gap:0 7px;align-items:baseline;line-height:1.5}
+.now-current .now-heading>strong{color:#263fa4}
+.now-subject{font-weight:700}
+.now-detail{font-size:11px;color:#5e6a85;line-height:1.45;margin-top:1px;overflow-wrap:anywhere}
+.now-next{border-top:1px solid #dce3f6;padding-top:4px}
+#viewer .cell.school-no-lesson{background:#f1f3f6!important;outline:0;cursor:default;color:#8893a6}
+#viewer .school-no-lesson::after{display:none}
+.no-lesson-mark{font-size:14px}

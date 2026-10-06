@@ -1,5 +1,5 @@
 /* GitHub Pages only. Public assets contain encrypted timetable data. */
-const VERSION='2026-10-06-pdf8';
+const VERSION='2026-10-06-now9';
 const CACHE='ichigaku-timetable-'+VERSION;
 const ROOT=new URL('./',self.location.href);
 const ASSETS=['./','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png'].map(path=>new URL(path,ROOT).href);

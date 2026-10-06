@@ -682,8 +682,9 @@
         box(MARGIN,rowY,periodWidth,rowHeight,data.header);
         ctx.textAlign='center';font(26,'700');ctx.fillStyle=data.text;ctx.fillText(PERIODS[p],MARGIN+periodWidth/2,rowY+rowHeight/2);
         for(let d=0;d<DAYS.length;d++){
-          const raw=item.d[p]?.[d]||[0,0,0],topText=TEXTS[raw[0]]||'',bottomText=TEXTS[raw[1]]||'';
-          const x=MARGIN+periodWidth+d*colWidth,fill=normalizeCellColor(topText,COLORS[raw[2]]||'#fff');
+          const noLesson=item.kind==='class'&&((p===6&&d!==3)||(d===5&&p>=4));
+          const raw=noLesson?[0,0,0]:item.d[p]?.[d]||[0,0,0],topText=noLesson?'—':TEXTS[raw[0]]||'',bottomText=TEXTS[raw[1]]||'';
+          const x=MARGIN+periodWidth+d*colWidth,fill=noLesson?'#f1f3f6':normalizeCellColor(topText,COLORS[raw[2]]||'#fff');
           box(x,rowY,colWidth,rowHeight,fill);
           const linked=!!viewerEl.querySelector('.cell[data-period="'+p+'"][data-day="'+d+'"][data-linked="true"]');
           cellText(topText,bottomText,x+colWidth/2,rowY+rowHeight/2,linked);
@@ -822,4 +823,88 @@
   });
   resetHome(false);
   post({type:'timetable-ui-ready'});
+})();
+
+/* timetable-now-v9 */
+;(() => {
+  'use strict';
+  const bells=[['08:35','09:25'],['09:35','10:25'],['10:35','11:25'],['11:35','12:25'],['13:10','14:00'],['14:10','15:00'],['15:10','16:00']];
+  const schoolSlot=(p,d)=>d>=0&&d<6&&p>=0&&p<7&&(p<6||d===3)&&(d!==5||p<4);
+  const current=()=>ITEMS.find(item=>item.key===state.currentKey);
+  const nowTemplate=document.createElement('template');
+  const minute=text=>Number(text.slice(0,2))*60+Number(text.slice(3));
+  const cell=(item,p,d)=>{
+    const raw=item.d[p]?.[d]||[0,0,0];
+    return {subject:compactSubjectText(TEXTS[raw[0]]||''),detail:String(TEXTS[raw[1]]||'').trim()};
+  };
+  // A class never has a seventh period outside Thursday, or Saturday periods 5–7.
+  for(const item of ITEMS.filter(item=>item.kind==='class')){
+    item.d=item.d.map((row,p)=>row.map((raw,d)=>schoolSlot(p,d)?raw:[0,0,0]));
+  }
+  function slotState(item,p,d){
+    if(!schoolSlot(p,d))return {busy:false,label:'授業なし'};
+    const lesson=cell(item,p,d),status=STATUS_TEXTS[item.n]||'';
+    if(item.kind==='teacher'){
+      if(/産休|育休|休職/.test(status))return {busy:false,label:status.match(/産休|育休|休職/)[0]};
+      if(String(REST_DAYS[item.n]||'').includes(DAYS[d])||/[✕×]/.test(lesson.subject))return {busy:false,label:'指定休'};
+      if(/休み[：:]/.test(status)&&(/[全毎]日/.test(status)||status.includes(DAYS[d])))return {busy:false,label:'休み'};
+      if(item.n==='山口'||(/出勤日/.test(status)&&/LA|ＬＡ|ゼミ/.test(status))){
+        if(d!==4||(p!==4&&p!==5))return {busy:false,label:'出勤時間外'};
+      }else if(/出勤日/.test(status)){
+        const days=(status.split(/出勤日[：:]?/)[1]||'').match(/[月火水木金土]/g);
+        if(days?.length&&!days.includes(DAYS[d]))return {busy:false,label:'出勤日外'};
+        if(!days?.length&&!lesson.subject&&!lesson.detail)return {busy:false,label:'出勤時間外'};
+      }
+    }
+    return {busy:!!(lesson.subject||lesson.detail),label:lesson.subject||lesson.detail?'':'空き',...lesson};
+  }
+  function entry(label,slot,item){
+    const heading=label+'：'+(slot?DAYS[slot.d]+'曜'+PERIODS[slot.p]+'限':'授業時間外');
+    const lesson=slot?slotState(item,slot.p,slot.d):null;
+    const subject=lesson?(lesson.busy?lesson.subject:lesson.label):'';
+    const detail=lesson?.busy&&lesson.detail?lesson.detail.replace(/\s*[\/／]\s*/g,'・'):'';
+    return '<div class="now-entry '+(label==='現在'?'now-current':'now-next')+'"><div class="now-heading"><strong>'+escapeHtml(heading)+'</strong>'+
+      (subject?' <span class="now-subject">'+escapeHtml(subject)+'</span>':'')+'</div>'+
+      (detail?'<div class="now-detail">'+(item.kind==='class'?'担当：':'クラス：')+escapeHtml(detail)+'</div>':'')+'</div>';
+  }
+  function updateNow(){
+    const item=current(),line=document.getElementById('now-text');if(!item||!line)return;
+    const date=new Date(Date.now()+9*60*60*1000),day=date.getUTCDay()-1,time=date.getUTCHours()*60+date.getUTCMinutes();
+    const period=bells.findIndex((range,p)=>schoolSlot(p,day)&&minute(range[0])<=time&&time<minute(range[1]));
+    let next=null;
+    for(let offset=0;offset<8&&!next;offset++){
+      const d=(day+offset+7)%7;if(d===6)continue;
+      for(let p=0;p<7;p++){
+        if(!schoolSlot(p,d)||(offset===0&&minute(bells[p][0])<=time)||!slotState(item,p,d).busy)continue;
+        next={p,d};break;
+      }
+    }
+    let html=entry('現在',period>=0?{p:period,d:day}:null,item)+'\n';
+    html+=next?entry('次の授業',next,item):'<div class="now-entry now-next"><div class="now-heading"><strong>次の授業：</strong>登録なし</div></div>';
+    nowTemplate.innerHTML=html;
+    const normalized=nowTemplate.innerHTML;
+    if(line.innerHTML!==normalized)line.innerHTML=normalized;
+    viewerEl.querySelectorAll('.cell.now-cell').forEach(td=>td.classList.remove('now-cell'));
+    if(period>=0)viewerEl.querySelector('.cell[data-period="'+period+'"][data-day="'+day+'"]')?.classList.add('now-cell');
+  }
+  function markNoLesson(){
+    const item=current();if(item?.kind!=='class')return;
+    viewerEl.querySelectorAll('.table .cell').forEach(td=>{
+      const p=Number(td.dataset.period),d=Number(td.dataset.day);if(schoolSlot(p,d))return;
+      if(td.dataset.schoolNoLesson!=='true'){
+        const plain=td.cloneNode(false);plain.dataset.schoolNoLesson='true';plain.className='cell empty school-no-lesson';
+        delete plain.dataset.linked;plain.removeAttribute('tabindex');plain.style.backgroundColor='#f1f3f6';
+        plain.innerHTML='<span class="no-lesson-mark" aria-hidden="true">—</span>';td.replaceWith(plain);td=plain;
+      }
+      td.className='cell empty school-no-lesson';delete td.dataset.difference;
+      td.setAttribute('aria-label',DAYS[d]+'曜'+PERIODS[p]+'限：授業なし');td.title=td.getAttribute('aria-label');
+    });
+  }
+  const previous=renderViewer;
+  renderViewer=function(item){previous(item);markNoLesson();updateNow();};
+  new MutationObserver(()=>{markNoLesson();updateNow();}).observe(viewerEl,{childList:true,subtree:true});
+  window.addEventListener('message',event=>{
+    if(event.source===parent&&event.data?.type==='timetable-comparison')markNoLesson();
+  });
+  setInterval(updateNow,30000);markNoLesson();updateNow();
 })();
