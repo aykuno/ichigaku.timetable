@@ -268,10 +268,12 @@ try{
     await app.locator('body').evaluate(()=>{
       DUTIES['複合G']=[{t:'6-2担任',c:'red'},{t:'地歴公民科主任',c:'blue'},{t:'教務部',c:'green'},{t:'なずな祭推進委員会',c:'black'}];
       REST_DAYS['複合G']='水';
+      const teacher=ITEMS.find(item=>item.n==='複合G');teacher.d[2][0]=teacher.d[0][0];teacher.d[0][0]=[0,0,0];
       window.pdfPaint=[];window.pdfRects=[];
     });
     await select('複合G');
     if(name==='WebKit'&&viewport.width===1280)await app.locator('body').evaluate(()=>Object.defineProperty(window,'CompressionStream',{value:undefined,configurable:true}));
+    const subjectInk=await app.locator('#viewer .cell:not(.empty) .toptext').first().evaluate(node=>{const ctx=document.createElement('canvas').getContext('2d');ctx.fillStyle=getComputedStyle(node).color;return ctx.fillStyle;});
     const roles=await app.locator('.teacher-affiliations .duty').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent.trim(),color:(()=>{const ctx=document.createElement('canvas').getContext('2d');ctx.fillStyle=getComputedStyle(node).color;return ctx.fillStyle;})()})));
     await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
     const compositeDownload=page.waitForEvent('download');await page.locator('#pdf-download').click();
@@ -282,6 +284,7 @@ try{
     const compositePaint=await app.locator('body').evaluate(()=>window.pdfPaint);
     for(const role of roles)assert.equal(compositePaint.find(point=>point.text===role.text)?.color,role.color,'role color differs from website');
     assert.ok(compositePaint.some(point=>point.text==='地理探究/公共'),'composite course must remain a single chip');
+    assert.equal(compositePaint.find(point=>point.text==='地理探究/公共').color,subjectInk,'an empty first cell must not gray all lesson text');
     assert.ok(compositePaint.some(point=>point.text==='指定休：水'));
     await previewPdf(await composite.path(),'composite');
     await page.locator('#pdf-close').click();await page.locator('#compare').click();await other.locator('#favorite-toggle').waitFor();

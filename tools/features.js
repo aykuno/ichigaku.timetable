@@ -556,8 +556,8 @@
     return {
       rest:rest?{text:rest.textContent.trim(),color:color(rest,'#1b2233')}:null,
       duties,fields,
-      text:color(root.querySelector('.toptext'),'#1b2233'),
-      bottom:color(root.querySelector('.bottomtext'),'#374151'),
+      text:color(root.querySelector('.cell:not(.empty) .toptext')||root.querySelector('.title'),'#1b2233'),
+      bottom:color(root.querySelector('.cell:not(.empty) .bottomtext'),'#374151'),
       border:style(table?.querySelector('td'),{borderColor:'#d7dbe7'}).borderColor,
       header:style(table?.querySelector('th'),{backgroundColor:'#eef2fa'}).backgroundColor
     };
