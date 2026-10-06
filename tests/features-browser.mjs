@@ -227,7 +227,7 @@ try{
         return originalFillRect.apply(this,arguments);
       };
     });
-    const siteRole=await app.locator('.teacher-affiliations .green').evaluate(node=>({text:node.textContent.trim(),color:getComputedStyle(node).color}));
+    const siteRole=await app.locator('.teacher-affiliations .green').evaluate(node=>({text:node.textContent.trim(),color:(()=>{const ctx=document.createElement('canvas').getContext('2d');ctx.fillStyle=getComputedStyle(node).color;return ctx.fillStyle;})()}));
     await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
     await page.locator('#pdf-share').click();
     assert.equal((await page.evaluate(()=>window.sharedPdf)).type,'application/pdf');
@@ -271,10 +271,14 @@ try{
       window.pdfPaint=[];window.pdfRects=[];
     });
     await select('複合G');
-    const roles=await app.locator('.teacher-affiliations .duty').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent.trim(),color:getComputedStyle(node).color})));
+    if(name==='WebKit'&&viewport.width===1280)await app.locator('body').evaluate(()=>Object.defineProperty(window,'CompressionStream',{value:undefined,configurable:true}));
+    const roles=await app.locator('.teacher-affiliations .duty').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent.trim(),color:(()=>{const ctx=document.createElement('canvas').getContext('2d');ctx.fillStyle=getComputedStyle(node).color;return ctx.fillStyle;})()})));
     await app.locator('#timetable-pdf').click();await page.locator('#pdf-dialog').waitFor({timeout:30000});
     const compositeDownload=page.waitForEvent('download');await page.locator('#pdf-download').click();
     const composite=await compositeDownload;
+    const compositeBytes=await readFile(await composite.path());
+    assert.ok(compositeBytes.toString('latin1').includes('/Width 2480 /Height 3508'));
+    if(name==='WebKit'&&viewport.width===1280)assert.ok(compositeBytes.toString('latin1').includes('/Filter /DCTDecode'),'JPEG fallback must work without CompressionStream');
     const compositePaint=await app.locator('body').evaluate(()=>window.pdfPaint);
     for(const role of roles)assert.equal(compositePaint.find(point=>point.text===role.text)?.color,role.color,'role color differs from website');
     assert.ok(compositePaint.some(point=>point.text==='地理探究/公共'),'composite course must remain a single chip');
