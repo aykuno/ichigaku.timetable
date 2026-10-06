@@ -18,7 +18,7 @@ const server=createServer((req,res)=>{
   res.writeHead(404);res.end('Not found');
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const url='http://127.0.0.1:'+server.address().port+prefix;
+const port=server.address().port,url='http://127.0.0.1:'+port+prefix;
 try{
   for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     const browser=await engine.launch();
@@ -63,15 +63,20 @@ try{
       await app.locator('#viewer .title').filter({hasText:'6-2'}).waitFor();
       await app.locator('#favorite-toggle').click();
       await page.waitForFunction(()=>!!localStorage.getItem('ichigaku.timetable.preferences.v1'));
-      await context.setOffline(true);
-      await page.goto(url+'?v=offline');
+      // Playwright WebKit offline emulation rejects worker-served navigation
+      // (microsoft/playwright#42775). Stop the origin to test actual failed requests.
+      if(name==='Chromium')await context.setOffline(true);
+      else await new Promise(resolve=>server.close(resolve));
+      const offlineResponse=await page.goto(url+'?v=offline');
+      assert.equal(offlineResponse.status(),200);
+      assert.equal(offlineResponse.fromServiceWorker(),true);
       assert.equal(await page.locator('iframe').count(),0,'offline reload still requires a password');
       await page.locator('#password').fill(password);await page.locator('#unlock').click();
       await app.locator('#q').fill('6-2');await app.locator('#results .result').first().click();
       await app.locator('#viewer .title').filter({hasText:'6-2'}).waitFor();
       assert.equal(await app.locator('.table td').count(),42);
       await app.locator('#favorites-list button').filter({hasText:'6-2'}).waitFor();
-      assert.equal(await page.locator('#offline-status').isVisible(),true);
+      if(name==='Chromium')assert.equal(await page.locator('#offline-status').isVisible(),true);
       await page.locator('#home').click();await app.locator('#viewer .title').filter({hasText:'時間割を選択してください'}).waitFor();
       await app.locator('#favorites-list button').filter({hasText:'6-2'}).waitFor();
       await page.locator('#logout').click();assert.equal(await page.locator('iframe').count(),0);
@@ -80,11 +85,13 @@ try{
         return await(await(await caches.open(name)).match(new URL('./',location.href))).text();
       });
       assert.ok(!offlineCached.includes('const DATA ='),'only encrypted public HTML is cached');
-      await context.setOffline(false);await page.reload();
+      if(name==='Chromium')await context.setOffline(false);
+      else await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));
+      await page.reload();
       assert.equal(await page.locator('#offline-status').isVisible(),false);
       assert.deepEqual(errors,[]);
       await context.close();
       console.log(name+': GitHub subpath manifest/icons, install guidance, encrypted offline cache, password gate, favorites and home reset passed');
     }finally{await browser.close();}
   }
-}finally{await new Promise(resolve=>server.close(resolve));}
+}finally{if(server.listening)await new Promise(resolve=>server.close(resolve));}
