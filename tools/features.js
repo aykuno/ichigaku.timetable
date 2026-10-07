@@ -908,3 +908,70 @@
   });
   setInterval(updateNow,30000);markNoLesson();updateNow();
 })();
+
+/* timetable-comparison-slots-v14 */
+;(() => {
+  'use strict';
+  const byId=id=>document.getElementById(id);
+  const schoolSlot=(p,d)=>Number.isInteger(p)&&Number.isInteger(d)&&p>=0&&p<7&&d>=0&&d<6&&(p<6||d===3)&&(d!==5||p<4);
+  const excluded=new WeakMap();
+  const differenceClasses=['diff-free','diff-partial','diff-busy','diff-related','diff-rest','diff-unknown'];
+  let comparing=false;
+  function restoreAttribute(node,name,value){if(value===null)node.removeAttribute(name);else node.setAttribute(name,value);}
+  function updateComparisonSlots(){
+    viewerEl.querySelectorAll('.table .cell').forEach(td=>{
+      const p=Number(td.dataset.period),d=Number(td.dataset.day),saved=excluded.get(td);
+      if(!comparing||schoolSlot(p,d)){
+        if(saved){
+          td.replaceChildren(...saved.nodes);
+          for(const [name,value] of saved.attributes)restoreAttribute(td,name,value);
+          td.classList.remove('comparison-no-lesson');delete td.dataset.comparisonNoLesson;
+          excluded.delete(td);
+        }
+        return;
+      }
+      if(!saved){
+        excluded.set(td,{nodes:[...td.childNodes],attributes:['title','aria-label','tabindex','role'].map(name=>[name,td.getAttribute(name)])});
+        const mark=document.createElement('span');mark.className='no-lesson-mark';mark.setAttribute('aria-hidden','true');mark.textContent='—';
+        td.replaceChildren(mark);
+      }
+      td.classList.remove(...differenceClasses,'now-cell');td.classList.add('comparison-no-lesson');
+      delete td.dataset.difference;td.dataset.comparisonNoLesson='true';
+      td.removeAttribute('tabindex');td.removeAttribute('role');
+      td.title=DAYS[d]+'曜'+PERIODS[p]+'限：授業なし';td.setAttribute('aria-label',td.title);
+    });
+  }
+  for(const type of ['click','keydown'])viewerEl.addEventListener(type,event=>{
+    const td=event.target.closest?.('.cell[data-comparison-no-lesson="true"]');
+    if(td&&comparing){event.preventDefault();event.stopImmediatePropagation();}
+  },true);
+  const previous=renderViewer;
+  renderViewer=function(item){previous(item);updateComparisonSlots();};
+  new MutationObserver(updateComparisonSlots).observe(viewerEl,{childList:true,subtree:true});
+  window.addEventListener('message',event=>{
+    if(event.source!==parent||event.data?.type!=='timetable-comparison')return;
+    comparing=!!event.data.enabled&&ITEMS.some(item=>item.key===event.data.key);
+    updateComparisonSlots();
+  });
+  function updateCommonSlots(){
+    const root=byId('common-grid'),table=root?.querySelector('.common-table');
+    if(!table)return;
+    let freeCount=0;
+    table.querySelectorAll('tbody tr').forEach((row,p)=>row.querySelectorAll('td').forEach((td,d)=>{
+      if(schoolSlot(p,d)){if(td.dataset.status==='free')freeCount++;return;}
+      td.dataset.status='no-lesson';td.className='common-no-lesson';td.onclick=null;td.onkeydown=null;
+      td.removeAttribute('tabindex');td.removeAttribute('role');
+      td.title=DAYS[d]+'曜'+PERIODS[p]+'限：授業なし';td.setAttribute('aria-label',td.title);
+      if(td.textContent.trim()!=='—'||td.children.length)td.textContent='—';
+    }));
+    const names=[...byId('common-selected').querySelectorAll('[data-remove]')].map(node=>ITEMS.find(item=>item.key===node.dataset.remove)?.n).filter(Boolean);
+    const message=byId('common-message');
+    if(names.length>=2&&message){
+      const text=names.join('・')+'の共通空き：'+freeCount+'コマ。各コマに教員ごとの状態を表示しています。';
+      if(message.textContent!==text)message.textContent=text;
+    }
+  }
+  const commonGrid=byId('common-grid');
+  if(commonGrid)new MutationObserver(updateCommonSlots).observe(commonGrid,{childList:true,subtree:true});
+  updateComparisonSlots();updateCommonSlots();
+})();

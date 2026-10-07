@@ -28,6 +28,46 @@ try{
     async function login(){await page.locator('#password').fill(password);await page.locator('#unlock').click();await page.frameLocator('#screen-1 iframe').locator('#viewer .title').filter({hasText:'時間割を選択してください'}).waitFor();}
     const app=page.frameLocator('#screen-1 iframe');
     async function select(label){await app.locator('#q').fill(label);await app.locator('#results .result').first().click();await app.locator('#viewer .title').filter({hasText:label}).waitFor();}
+
+    const nonSchoolSlots=[[6,0],[6,1],[6,2],[6,4],[6,5],[4,5],[5,5]];
+    async function assertCommonSchoolSlots(frame){
+      await frame.locator('.common-table tbody td[data-status="no-lesson"]').first().waitFor();
+      const cells=await frame.locator('.common-table tbody').evaluate(tbody=>[...tbody.rows].map(row=>[...row.querySelectorAll('td')].map(td=>({
+        status:td.dataset.status,text:td.textContent.trim(),people:td.querySelectorAll('.common-person').length,
+        role:td.getAttribute('role'),tabindex:td.getAttribute('tabindex'),label:td.getAttribute('aria-label')
+      }))));
+      assert.equal(cells.flat().length,42);
+      assert.equal(cells.flat().filter(cell=>cell.status==='no-lesson').length,7);
+      for(const [p,d] of nonSchoolSlots){
+        const cell=cells[p][d];
+        assert.equal(cell.status,'no-lesson');assert.equal(cell.text,'—');
+        assert.equal(cell.people,0);assert.equal(cell.role,null);assert.equal(cell.tabindex,null);
+        assert.ok(cell.label?.includes('授業なし'));
+      }
+      assert.notEqual(cells[6][3].status,'no-lesson','Thursday seventh period must remain available');
+      assert.notEqual(cells[3][5].status,'no-lesson','Saturday fourth period must remain available');
+      const count=(await frame.locator('#common-message').textContent()).match(/共通空き：(\d+)コマ/);
+      assert.ok(count,'common free count is visible');
+      assert.equal(Number(count[1]),cells.flat().filter(cell=>cell.status==='free').length);
+    }
+    async function assertComparisonSchoolSlots(frame){
+      await frame.locator('.cell[data-comparison-no-lesson="true"]').first().waitFor();
+      const cells=await frame.locator('#viewer .table .cell').evaluateAll(nodes=>nodes.map(td=>({
+        p:Number(td.dataset.period),d:Number(td.dataset.day),excluded:td.dataset.comparisonNoLesson,
+        text:td.textContent.trim(),difference:td.dataset.difference??null,
+        classes:td.className,links:td.querySelectorAll('.cell-link').length,
+        role:td.getAttribute('role'),tabindex:td.getAttribute('tabindex'),label:td.getAttribute('aria-label')
+      })));
+      assert.equal(cells.filter(cell=>cell.excluded==='true').length,7);
+      for(const [p,d] of nonSchoolSlots){
+        const cell=cells.find(cell=>cell.p===p&&cell.d===d);
+        assert.ok(cell);assert.equal(cell.excluded,'true');assert.equal(cell.text,'—');
+        assert.equal(cell.difference,null);assert.ok(!/\bdiff-(?:free|partial|busy|related|rest|unknown)\b/.test(cell.classes));
+        assert.equal(cell.links,0);assert.equal(cell.role,null);assert.equal(cell.tabindex,null);
+        assert.ok(cell.label?.includes('授業なし'));
+      }
+      for(const [p,d] of [[6,3],[3,5]])assert.notEqual(cells.find(cell=>cell.p===p&&cell.d===d).difference,null);
+    }
     await page.clock.install({time:new Date('2026-10-04T23:40:00Z')});
     await page.goto(url);await login();await select('6-2');
     // The timetable must precede optional tools and fit near the top on phones.
@@ -181,6 +221,7 @@ try{
     assert.equal(await app.locator('#common-grid').textContent(),'');
     await app.locator('#common-homeroom').click();
     const grid=app.locator('.common-table tbody');
+    await assertCommonSchoolSlots(app);
     assert.equal(await grid.locator('tr').nth(0).locator('td').nth(0).getAttribute('data-status'),'partial');
     assert.equal(await grid.locator('tr').nth(2).locator('td').nth(1).getAttribute('data-status'),'free');
     assert.equal(await grid.locator('tr').nth(1).locator('td').nth(4).getAttribute('data-status'),'busy');
@@ -206,6 +247,7 @@ try{
     await app.locator('#common-query').fill('休みE');
     await app.locator('[data-teacher="teacher:休みE"]').click();
     assert.equal(await grid.locator('tr').nth(1).locator('td').nth(4).getAttribute('data-status'),'partial');
+    await assertCommonSchoolSlots(app);
 
     await app.locator('#common-query').fill('産休D');
     await app.locator('[data-teacher="teacher:産休D"]').click();
@@ -228,10 +270,20 @@ try{
     await app.locator('.cell[data-difference="related"]').waitFor();
     await other.locator('#q').fill('副担任B');await other.locator('#results .result').first().click();
     await select('担任A');
+    // Both teacher comparisons exclude non-school periods, including after a toggle.
+    await assertComparisonSchoolSlots(app);await assertComparisonSchoolSlots(other);
+    await page.locator('#differences').click();
+    await app.locator('.cell.comparison-no-lesson').first().waitFor({state:'detached'});
+    await other.locator('.cell.comparison-no-lesson').first().waitFor({state:'detached'});
+    assert.equal(await app.locator('.cell.comparison-no-lesson').count(),0);
+    assert.equal(await other.locator('.cell.comparison-no-lesson').count(),0);
+    await page.locator('#differences').click();
+    await assertComparisonSchoolSlots(app);await assertComparisonSchoolSlots(other);
     const shared=page.frameLocator('#shared-tools iframe');
     if(!await shared.locator('#common-tools').evaluate(node=>node.open))await shared.locator('#common-tools summary').click();
     await shared.locator('#common-comparison').click();
     assert.equal(await shared.locator('#common-selected button').count(),2);
+    await assertCommonSchoolSlots(shared);
     assert.equal(await app.locator('#common-tools').isVisible(),false);
     assert.equal(await other.locator('#common-tools').isVisible(),false);
     await app.locator('#favorite-toggle').click();
